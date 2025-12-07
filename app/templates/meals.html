@@ -1,0 +1,44 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="card">
+  <h2>Posiłki dzisiaj</h2>
+  <form action="/meals/add" method="post">
+    <label>Nazwa produktu:
+      <input type="text" name="name" placeholder="np. jabłko, kanapka" required>
+    </label>
+    <br/><br/>
+    <label>Kcal:
+      <input type="number" name="kcal" min="1" max="5000" step="1" placeholder="np. 250" required>
+    </label>
+    <br/><br/>
+    <button type="submit" class="btn">Dodaj posiłek</button>
+    <a href="/kcal" class="btn btn-secondary" style="margin-left:8px">Znajdź kalorie</a>
+  </form>
+
+  <hr/>
+
+  <h3>Podsumowanie dnia ({{ today }})</h3>
+  <p>Cel: <strong>{{ goal }}</strong> kcal &nbsp;|&nbsp; Zjedzone: <strong>{{ total }}</strong> kcal &nbsp;|&nbsp; Pozostało: <strong>{{ remaining }}</strong> kcal</p>
+
+  <form action="/meals/goal" method="post" style="margin-top:8px;">
+    <label>Ustaw dzienny cel (kcal):
+      <input type="number" name="goal" min="800" max="10000" step="50" value="{{ goal }}" required>
+    </label>
+    <button type="submit" class="btn">Zapisz cel</button>
+  </form>
+
+  {% if meals %}
+    <h3>Zjedzone dziś</h3>
+    <ul>
+    {% for m in meals %}
+      <li>
+        <strong>{{ m.name }}</strong>
+        <div>{{ m.kcal }} kcal</div>
+      </li>
+    {% endfor %}
+    </ul>
+  {% else %}
+    <p>Brak posiłków dodanych dzisiaj.</p>
+  {% endif %}
+</div>
+{% endblock %}
