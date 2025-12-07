@@ -19,7 +19,6 @@
       <li>
         <strong>{{ r.name }}</strong>
         <div>Kcal / 100 g: {% if r.kcal_100g is not none %}{{ r.kcal_100g }}{% else %}brak danych{% endif %}</div>
-        <div>Kcal / sztuka: {% if r.kcal_per_piece is not none %}{{ r.kcal_per_piece }}{% else %}brak danych{% endif %}{% if r.serving_size %} (porcja: {{ r.serving_size }}){% endif %}</div>
         {% if r.source %}<div><a href="{{ r.source }}" target="_blank" rel="noopener">Źródło</a></div>{% endif %}
       </li>
     {% endfor %}

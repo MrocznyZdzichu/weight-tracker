@@ -22,35 +22,19 @@ def _kcal_from_kj(kj: float | None) -> float | None:
         return None
 
 def _extract_kcal(text: str) -> Dict:
-    t = text.lower()
+    t = text.lower().replace(",", ".")
     kcal_100g = None
-    kcal_serv = None
-    serving_size = None
-    p1 = re.search(r"(?:per|na)\s*100\s*g[^\n]{0,40}?(\d{2,4})\s*kcal", t)
-    if not p1:
-        p1 = re.search(r"(\d{2,4})\s*kcal[^\n]{0,40}?(?:per|na)\s*100\s*g", t)
-    if p1:
+    m100 = (
+        re.search(r"(?:na|per|/)\s*100\s*g[^\n]*?[:=]?\s*(\d+(?:\.\d+)?)\s*kcal", t)
+        or re.search(r"100\s*g[^\n]*?(?:kcal|kilocalories)[^\n]*?[:=]?\s*(\d+(?:\.\d+)?)", t)
+        or re.search(r"kcal\s*/\s*100\s*g\s*[:=]?\s*(\d+(?:\.\d+)?)", t)
+    )
+    if m100:
         try:
-            kcal_100g = float(p1.group(1))
+            kcal_100g = float(m100.group(1))
         except Exception:
             kcal_100g = None
-    p2 = re.search(r"(\d{2,4})\s*kcal[^\n]{0,40}?(?:per|na)\s*(serving|porcja|sztuka|piece)", t)
-    if p2:
-        try:
-            kcal_serv = float(p2.group(1))
-            serving_size = p2.group(2)
-        except Exception:
-            kcal_serv = None
-    if kcal_serv is None:
-        mgs = re.search(r"(porcja|serving|sztuka|baton|piece)[^\n]{0,30}?(\d+(?:[\.,]\d+)?)\s*g", t)
-        if mgs and kcal_100g is not None:
-            try:
-                grams = float(mgs.group(2).replace(",", "."))
-                kcal_serv = round(kcal_100g * grams / 100.0, 1)
-                serving_size = f"{grams} g"
-            except Exception:
-                pass
-    return {"kcal_100g": kcal_100g, "kcal_serv": kcal_serv, "serving_size": serving_size}
+    return {"kcal_100g": kcal_100g}
 
 def _fallback_search_kcal(query: str, max_results: int) -> List[Dict]:
     import requests
@@ -58,11 +42,11 @@ def _fallback_search_kcal(query: str, max_results: int) -> List[Dict]:
     from app.services.recipes import search_recipe_links
     results: List[Dict] = []
     queries = [
-        f"kcal {query}",
-        f"kalorie {query}",
-        f"{query} kalorie 100 g",
-        f"{query} calories 100 g",
-        f"{query} kcal per serving",
+        f"kcal {query} 100 g",
+        f"kalorie {query} 100 g",
+        f"{query} kalorie na 100 g",
+        f"{query} calories per 100 g",
+        f"{query} kcal / 100 g",
     ]
     seen = set()
     links: List[str] = []
@@ -80,12 +64,10 @@ def _fallback_search_kcal(query: str, max_results: int) -> List[Dict]:
             title = soup.title.get_text(strip=True) if soup.title else url
             text = soup.get_text(" ", strip=True)
             ex = _extract_kcal(text)
-            if ex["kcal_100g"] is not None or ex["kcal_serv"] is not None:
+            if ex["kcal_100g"] is not None:
                 results.append({
                     "name": title,
                     "kcal_100g": ex["kcal_100g"],
-                    "kcal_per_piece": ex["kcal_serv"],
-                    "serving_size": ex["serving_size"],
                     "source": url,
                 })
         except Exception:
@@ -113,19 +95,12 @@ def find_kcal_info(query: str, max_results: int = 5) -> List[Dict]:
             kcal_100g = nutr.get("energy-kcal_100g")
             if kcal_100g is None:
                 kcal_100g = _kcal_from_kj(nutr.get("energy_100g"))
-            kcal_serv = nutr.get("energy-kcal_serving")
-            if kcal_serv is None:
-                grams = _parse_grams(p.get("serving_size"))
-                if grams and kcal_100g is not None:
-                    kcal_serv = round(kcal_100g * grams / 100.0, 1)
             item = {
                 "name": name,
                 "kcal_100g": kcal_100g,
-                "kcal_per_piece": kcal_serv,
-                "serving_size": p.get("serving_size"),
                 "source": p.get("url") or p.get("id") or "",
             }
-            if item["kcal_100g"] is not None or item["kcal_per_piece"] is not None:
+            if item["kcal_100g"] is not None:
                 results.append(item)
             if len(results) >= max_results:
                 break

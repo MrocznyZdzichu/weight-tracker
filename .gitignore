@@ -35,3 +35,4 @@ data.csv #Example data
 
 # Docker artifacts
 *.tar
+data.csv
