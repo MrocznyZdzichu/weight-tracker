@@ -1,0 +1,10 @@
+{% extends "base.html" %}
+{% block content %}
+<h2>Ciekawostka zdrowego odżywiania</h2>
+{% if fact %}
+  <p>{{ fact }}</p>
+  <p class="small"><a href="/tips">Wylosuj kolejną</a></p>
+{% else %}
+  <p>Nie udało się pobrać ciekawostki. Spróbuj ponownie później.</p>
+{% endif %}
+{% endblock %}

@@ -1,0 +1,32 @@
+{% extends "base.html" %}
+{% block content %}
+<h2>Statystyki</h2>
+<form action="/stats" method="get" style="margin:12px 0;">
+  <label>Filtr okresów (rok / półrocze / kwartał):
+    <input type="text" name="filters" value="{{ filters }}" placeholder="2025,2024H2,2025Q1" style="width:280px;">
+  </label>
+  <label style="margin-left:12px;">
+    <input type="checkbox" name="trend" value="1" {% if trend %}checked{% endif %}> Linia trendu
+  </label>
+  <button type="submit" style="margin-left:12px;">Zastosuj</button>
+  {% if filters or trend %}<a href="/stats" class="small" style="margin-left:8px;">Wyczyść</a>{% endif %}
+</form>
+{% if not weekly %}
+  <p>Za mało danych do obliczeń. Dodaj kilka pomiarów.</p>
+{% else %}
+  <p>Ostatnia zmiana: {% if last_change is not none %}{{ last_change }} kg/tydzień{% endif %}</p>
+  <p>Średnia tygodniowa zmiana: {% if avg_weekly is not none %}{{ avg_weekly }} kg/tydzień{% endif %}</p>
+  <!-- <h3>Lista tygodniowych zmian</h3>
+  <table>
+    <tr><th>Data (koniec okresu)</th><th>kg/tydzień</th></tr>
+    {% for w in weekly %}
+      <tr><td>{{ w.date.date() if w.date is string else w.date }}</td><td>{{ "%.3f"|format(w.kg_per_week) }}</td></tr>
+    {% endfor %}
+  </table> -->
+  <h3>Wykresy</h3>
+  <h2>Historia masy ciała</h2>
+  <img src="/plot?{% if filters %}filters={{ filters }}&{% endif %}{% if trend %}trend=1{% endif %}" alt="Wykres masy ciała" style="max-width: 100%;">
+  <h2>Histogram tygodniowych zmian</h2>
+  <img src="/plot-weekly-changes{% if filters %}?filters={{ filters }}{% endif %}" style="max-width:100%;">
+{% endif %}
+{% endblock %}

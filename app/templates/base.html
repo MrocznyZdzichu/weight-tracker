@@ -1,0 +1,32 @@
+<!doctype html>
+<html>
+  <head>
+    <meta charset="utf-8"/>
+    <title>Weight Tracker</title>
+    <link rel="stylesheet" href="/static/style.css"/>
+  </head>
+  <body>
+    <header class="header">
+      <h1 class="app-title">Weight Tracker</h1>
+      <nav class="nav">
+        <a href="/">Strona główna</a>
+        <a href="/add">Dodaj pomiar</a>
+        <a href="/history">Historia</a>
+        <a href="/stats">Statystyki</a>
+        <a href="/import">Import CSV</a>
+        <a href="/export">Export CSV</a>
+        <a href="/tips">Porady</a>
+        <a href="/recipes">Przepisy</a>
+        <a href="/login">Logowanie</a>
+        <a href="/register">Rejestracja</a>
+        <form action="/logout" method="post" class="inline">
+          <button type="submit" class="btn">Wyloguj</button>
+        </form>
+      </nav>
+      <hr/>
+    </header>
+    <main class="container">
+      {% block content %}{% endblock %}
+    </main>
+  </body>
+</html>

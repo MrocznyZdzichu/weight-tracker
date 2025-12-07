@@ -1,0 +1,18 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="card">
+  <h2>Ostatnie pomiary</h2>
+  <p>Ostatnia zmiana: {% if last_change is not none %}{{ last_change }} kg/tydzień{% else %}—{% endif %}</p>
+  <p>Średnia tygodniowa zmiana: {% if avg_weekly is not none %}{{ avg_weekly }} kg/tydzień{% else %}—{% endif %}</p>
+  {% if measurements %}
+    <table>
+      <tr><th>Data</th><th>Masa (kg)</th></tr>
+      {% for m in measurements[-10:] %}
+        <tr><td>{{ m.date }}</td><td>{{ "%.1f"|format(m.weight_kg) }}</td></tr>
+      {% endfor %}
+    </table>
+  {% else %}
+    <p>Brak pomiarów. Dodaj pierwszy pomiar <a href="/add">tutaj</a>.</p>
+  {% endif %}
+</div>
+{% endblock %}

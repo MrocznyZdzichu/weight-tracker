@@ -1,0 +1,13 @@
+{% extends "base.html" %}
+{% block content %}
+<h2>Edytuj pomiar</h2>
+<form action="/edit/{{ m.id }}" method="post">
+  <label>Data:
+    <input type="date" name="date_str" value="{{ m.date }}" required>
+  </label><br><br>
+  <label>Masa (kg):
+    <input type="number" step="0.1" min="20" max="300" name="weight" value="{{ "%.1f"|format(m.weight_kg) }}" required>
+  </label><br><br>
+  <button type="submit">Zapisz</button>
+</form>
+{% endblock %}

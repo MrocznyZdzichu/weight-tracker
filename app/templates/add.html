@@ -1,0 +1,9 @@
+{% extends "base.html" %}
+{% block content %}
+<h2>Dodaj pomiar</h2>
+<form action="/add" method="post">
+  <label>Data: <input type="date" name="date_str" value="{{ today }}" required></label><br/><br/>
+  <label>Masa (kg, np. 82.3): <input type="number" step="0.1" min="20" max="300" name="weight" required></label><br/><br/>
+  <button type="submit">Dodaj</button>
+</form>
+{% endblock %}

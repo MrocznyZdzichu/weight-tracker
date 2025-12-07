@@ -1,0 +1,36 @@
+{% extends "base.html" %}
+{% block content %}
+<h2>Historia pomiarów</h2>
+<form action="/history" method="get" style="margin:12px 0;">
+  <label>Filtr okresów (rok, kwartał, miesiąc):
+    <input type="text" name="filters" value="{{ filters }}" placeholder="2024,2025Q1,2024-01" style="width:260px;">
+  </label>
+  <button type="submit">Filtruj</button>
+  {% if filters %}<a href="/history" class="small">Wyczyść</a>{% endif %}
+</form>
+{% if measurements %}
+  <table>
+    <tr>
+      <th>#</th>
+      <th>Data</th>
+      <th>Masa (kg)</th>
+      <th>Akcje</th>
+    </tr>
+    {% for m in measurements %}
+      <tr>
+        <td>{{ loop.index }}</td>
+        <td>{{ m.date }}</td>
+        <td>{{ "%.1f"|format(m.weight_kg) }}</td>
+        <td>
+          <a href="/edit/{{ m.id }}">Edytuj</a>
+          <form action="/delete/{{ m.id }}" method="post" style="display:inline" onsubmit="return confirm('Usunąć pomiar?')">
+            <button type="submit">Usuń</button>
+          </form>
+        </td>
+      </tr>
+    {% endfor %}
+  </table>
+{% else %}
+  <p>Brak pomiarów.</p>
+{% endif %}
+{% endblock %}

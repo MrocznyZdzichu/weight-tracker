@@ -1,0 +1,31 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="card">
+  <h2>Przepisy</h2>
+  <form action="/recipes" method="post">
+    <label>Składniki (po przecinku):
+      <input type="text" name="ingredients" value="{{ ingredients or '' }}" placeholder="ziemniaki, papryka">
+    </label>
+    <label>Ile wyników?
+      <input type="number" name="count" value="{{ count or 5 }}" min="1" max="10">
+    </label>
+    <button type="submit" class="btn">Szukaj przepisu</button>
+  </form>
+
+  {% if error %}
+    <p class="alert">{{ error }}</p>
+  {% endif %}
+
+  {% if recipes %}
+    <ul>
+    {% for r in recipes %}
+      <li>
+        <strong>{{ r.title }}</strong>
+        <div><a href="{{ r.url }}" target="_blank" rel="noopener">Zobacz przepis</a></div>
+        <div>Kcal: {% if r.kcal %}{{ r.kcal }}{% else %}brak danych{% endif %}</div>
+      </li>
+    {% endfor %}
+    </ul>
+  {% endif %}
+</div>
+{% endblock %}

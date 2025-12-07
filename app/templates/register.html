@@ -1,0 +1,19 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="card">
+  <h2>Rejestracja</h2>
+  {% if error %}<p class="alert">{{ error }}</p>{% endif %}
+  <form action="/register" method="post">
+    <label>Email:
+      <input type="email" name="email" required>
+    </label>
+    <br/><br/>
+    <label>Hasło:
+      <input type="password" name="password" required>
+    </label>
+    <br/><br/>
+    <button type="submit" class="btn">Utwórz konto</button>
+    <p class="small">Masz konto? <a href="/login">Zaloguj się</a></p>
+  </form>
+</div>
+{% endblock %}
