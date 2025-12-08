@@ -29,11 +29,17 @@
 
   {% if meals %}
     <h3>Zjedzone dziś</h3>
-    <ul>
+    <ul class="meals-list">
     {% for m in meals %}
-      <li>
-        <strong>{{ m.name }}</strong>
-        <div>{{ m.kcal }} kcal</div>
+      <li class="meal-item">
+        <form action="/meals/edit/{{ m.id }}" method="post" class="edit-form">
+          <input type="text" name="name" value="{{ m.name }}" required>
+          <input type="number" name="kcal" min="1" max="5000" step="1" value="{{ m.kcal }}" required>
+          <button type="submit" class="btn btn-sm">Zapisz</button>
+        </form>
+        <form action="/meals/delete/{{ m.id }}" method="post" class="delete-form">
+          <button type="submit" class="btn btn-secondary btn-sm" onclick="return confirm('Usunąć ten wpis?')">Usuń</button>
+        </form>
       </li>
     {% endfor %}
     </ul>
