@@ -67,3 +67,32 @@ def set_goal(request: Request, goal: int = Form(...)):
             session.commit()
     return RedirectResponse("/meals", status_code=303)
 
+@router.post("/meals/edit/{meal_id}")
+def edit_meal(request: Request, meal_id: int, name: str = Form(...), kcal: int = Form(...)):
+    uid = request.session.get("uid")
+    if not uid:
+        return RedirectResponse("/login", status_code=303)
+    name = name.strip()
+    kcal = int(kcal)
+    if not name or kcal <= 0:
+        return RedirectResponse("/meals", status_code=303)
+    with Session(engine) as session:
+        m = session.get(Meal, meal_id)
+        if m and m.user_id == uid:
+            m.name = name
+            m.kcal = kcal
+            session.add(m)
+            session.commit()
+    return RedirectResponse("/meals", status_code=303)
+
+@router.post("/meals/delete/{meal_id}")
+def delete_meal(request: Request, meal_id: int):
+    uid = request.session.get("uid")
+    if not uid:
+        return RedirectResponse("/login", status_code=303)
+    with Session(engine) as session:
+        m = session.get(Meal, meal_id)
+        if m and m.user_id == uid:
+            session.delete(m)
+            session.commit()
+    return RedirectResponse("/meals", status_code=303)

@@ -104,8 +104,18 @@ ul{list-style:none;padding:0;margin:0}
 li{padding:12px;border:1px solid var(--border);border-radius:12px;background:linear-gradient(180deg,#0d1526 0%,#0e1a2f 100%);margin-bottom:10px}
 li strong{display:block;margin-bottom:6px}
 
+.btn-sm{padding:6px 10px;border-radius:8px}
+
+.meals-list{display:grid;gap:8px}
+.meal-item{padding:8px;margin-bottom:0;display:flex;align-items:center;gap:8px;flex-wrap:nowrap}
+.meal-item form{margin:0}
+.meal-item .edit-form{display:grid;grid-template-columns:minmax(480px,1fr) 100px auto;column-gap:8px;align-items:center}
+.meal-item .delete-form{display:flex}
+.meals-list input[type="text"], .meals-list input[type="number"]{width:auto}
+
 @media (max-width:640px){
   .nav{gap:8px}
   .container{padding:12px}
   th,td{padding:10px}
+  .meal-item .edit-form{grid-template-columns:minmax(240px,1fr) 100px auto}
 }
