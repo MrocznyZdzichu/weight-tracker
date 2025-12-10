@@ -27,6 +27,11 @@
     <button type="submit" class="btn">Zapisz cel</button>
   </form>
 
+  <form action="/meals/save-day" method="post" style="margin-top:12px;">
+    <button type="submit" class="btn">Zapisz dzień</button>
+    <a href="/meals/history" class="btn btn-secondary" style="margin-left:8px;">Historia posiłków</a>
+  </form>
+
   {% if meals %}
     <h3>Zjedzone dziś</h3>
     <ul class="meals-list">

@@ -15,13 +15,18 @@ def index(request: Request):
     uid = request.session.get("uid")
     measurements = get_all_measurements(uid) if uid else []
     weekly = compute_weekly_changes(measurements)
+    last_value = None
+    last_date = None
+    if measurements:
+        last_value = round(float(measurements[-1].weight_kg), 1)
+        last_date = measurements[-1].date
     if weekly:
         last_change = round(float(weekly[-1]["kg_per_week"]), 3)
         avg_weekly = round(float(sum(w["kg_per_week"] for w in weekly) / len(weekly)), 3)
     else:
         last_change = None
         avg_weekly = None
-    return templates.TemplateResponse("index.html", {"request": request, "measurements": measurements, "last_change": last_change, "avg_weekly": avg_weekly})
+    return templates.TemplateResponse("index.html", {"request": request, "measurements": measurements, "last_change": last_change, "avg_weekly": avg_weekly, "last_value": last_value, "last_date": last_date})
 
 @router.get("/add")
 def add_form(request: Request):
@@ -59,14 +64,19 @@ def stats(request: Request, filters: str | None = None, trend: str | None = None
         return RedirectResponse("/login", status_code=303)
     measurements = get_all_measurements(uid)
     measurements = filter_by_periods(measurements, filters)
+    last_value = None
+    last_date = None
+    if measurements:
+        last_value = round(float(measurements[-1].weight_kg), 1)
+        last_date = measurements[-1].date
     if len(measurements) < 2:
-        return templates.TemplateResponse("stats.html", {"request": request, "weekly": [], "last_change": None, "avg_weekly": None, "filters": filters or "", "trend": trend in ("1","true","yes","on")})
+        return templates.TemplateResponse("stats.html", {"request": request, "weekly": [], "last_change": None, "avg_weekly": None, "filters": filters or "", "trend": trend in ("1","true","yes","on"), "last_value": last_value, "last_date": last_date})
     weekly = compute_weekly_changes(measurements)
     if not weekly:
-        return templates.TemplateResponse("stats.html", {"request": request, "weekly": [], "last_change": None, "avg_weekly": None, "filters": filters or "", "trend": trend in ("1","true","yes","on")})
+        return templates.TemplateResponse("stats.html", {"request": request, "weekly": [], "last_change": None, "avg_weekly": None, "filters": filters or "", "trend": trend in ("1","true","yes","on"), "last_value": last_value, "last_date": last_date})
     last_change = round(float(weekly[-1]["kg_per_week"]), 3)
     avg_weekly = round(float(sum(w["kg_per_week"] for w in weekly) / len(weekly)), 3)
-    return templates.TemplateResponse("stats.html", {"request": request, "weekly": weekly, "last_change": last_change, "avg_weekly": avg_weekly, "filters": filters or "", "trend": trend in ("1","true","yes","on")})
+    return templates.TemplateResponse("stats.html", {"request": request, "weekly": weekly, "last_change": last_change, "avg_weekly": avg_weekly, "filters": filters or "", "trend": trend in ("1","true","yes","on"), "last_value": last_value, "last_date": last_date})
 
 @router.get("/export")
 def export_csv(request: Request):

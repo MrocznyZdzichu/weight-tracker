@@ -21,3 +21,10 @@ class Meal(SQLModel, table=True):
     name: str
     kcal: int
     user_id: Optional[int] = Field(default=None)
+
+class SavedDay(SQLModel, table=True):
+    id: Optional[int] = Field(default=None, primary_key=True)
+    date: date
+    user_id: Optional[int] = Field(default=None)
+    total_kcal: int = Field(default=0)
+    saved_at: datetime = Field(default_factory=datetime.utcnow)
