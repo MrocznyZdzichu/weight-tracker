@@ -1,0 +1,61 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="card">
+  <h2>Historia posiłków</h2>
+  <form action="/meals/history" method="get" style="margin:12px 0; display:flex; flex-wrap:wrap; gap:12px; align-items:flex-end;">
+    <label>Dokładny dzień:
+      <input type="date" name="date_str" value="{{ date_str }}">
+    </label>
+    <label>Od:
+      <input type="date" name="from_date" value="{{ from_date }}">
+    </label>
+    <label>Do:
+      <input type="date" name="to_date" value="{{ to_date }}">
+    </label>
+    <label>Produkt zawiera:
+      <input type="text" name="product" value="{{ product }}" placeholder="np. jabłko, kanapka" style="min-width:240px;">
+    </label>
+    <button type="submit" class="btn">Filtruj</button>
+    {% if date_str or from_date or to_date or product %}
+      <a href="/meals/history" class="btn btn-secondary">Wyczyść</a>
+    {% endif %}
+    <a href="/meals/history?date_str={{ today }}" class="btn btn-secondary">Pokaż dziś</a>
+  </form>
+  <div class="meals-history" style="display:grid; grid-template-columns:minmax(320px,1fr) minmax(360px,520px); gap:16px; align-items:start;">
+    <div>
+      {% if days %}
+        <div style="display:grid; gap:16px;">
+        {% for d in days %}
+          <div class="card" style="margin:0;">
+            <h3 style="margin-top:0;">{{ d.date }}</h3>
+            <p>Razem: <strong>{{ d.total_kcal }}</strong> kcal</p>
+            {% if d.meals %}
+              <table>
+                <tr><th>#</th><th>Produkt</th><th>Kcal</th></tr>
+                {% for m in d.meals %}
+                  <tr><td>{{ loop.index }}</td><td>{{ m.name }}</td><td>{{ m.kcal }}</td></tr>
+                {% endfor %}
+              </table>
+            {% else %}
+              <p>Brak posiłków spełniających filtr.</p>
+            {% endif %}
+          </div>
+        {% endfor %}
+        </div>
+      {% else %}
+        <p>Brak zapisanych dni.</p>
+      {% endif %}
+    </div>
+    <div style="display:grid; gap:16px;">
+      <div class="card" style="margin:0;">
+        <h3 style="margin-top:0;">Wykres dziennych kalorii</h3>
+        <img src="/plot-meals-daily?{% if date_str %}date_str={{ date_str }}&{% endif %}{% if from_date %}from_date={{ from_date }}&{% endif %}{% if to_date %}to_date={{ to_date }}&{% endif %}{% if product %}product={{ product }}{% endif %}" alt="Wykres dziennych kalorii" style="max-width:100%;"/>
+      </div>
+      <div class="card" style="margin:0;">
+        <h3 style="margin-top:0;">Histogram dziennych kalorii</h3>
+        <img src="/plot-meals-hist?{% if date_str %}date_str={{ date_str }}&{% endif %}{% if from_date %}from_date={{ from_date }}&{% endif %}{% if to_date %}to_date={{ to_date }}&{% endif %}{% if product %}product={{ product }}{% endif %}" alt="Histogram dziennych kalorii" style="max-width:100%;"/>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}

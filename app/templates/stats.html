@@ -14,6 +14,7 @@
 {% if not weekly %}
   <p>Za mało danych do obliczeń. Dodaj kilka pomiarów.</p>
 {% else %}
+  <p>Ostatni pomiar: {% if last_value is not none and last_date %}{{ "%.1f"|format(last_value) }} kg ({{ last_date }}){% endif %}</p>
   <p>Ostatnia zmiana: {% if last_change is not none %}{{ last_change }} kg/tydzień{% endif %}</p>
   <p>Średnia tygodniowa zmiana: {% if avg_weekly is not none %}{{ avg_weekly }} kg/tydzień{% endif %}</p>
   <!-- <h3>Lista tygodniowych zmian</h3>
