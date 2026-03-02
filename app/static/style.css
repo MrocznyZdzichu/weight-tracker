@@ -42,7 +42,8 @@ body{
   transition:background .2s ease,color .2s ease;
 }
 .nav a:hover{background:rgba(255,255,255,.06)}
-.inline{display:inline}
+.inline{display:inline-block; margin:0; padding:0}
+.meal-actions{display:inline-flex; gap:4px; vertical-align:middle; flex-wrap:nowrap}
 
 hr{border:none;height:1px;background:linear-gradient(90deg,transparent,rgba(255,255,255,.15),transparent);margin:12px 0}
 
@@ -109,7 +110,7 @@ li strong{display:block;margin-bottom:6px}
 .meals-list{display:grid;gap:8px}
 .meal-item{padding:8px;margin-bottom:0;display:flex;align-items:center;gap:8px;flex-wrap:nowrap}
 .meal-item form{margin:0}
-.meal-item .edit-form{display:grid;grid-template-columns:minmax(480px,1fr) 100px auto;column-gap:8px;align-items:center}
+.meal-item .edit-form{display:grid;grid-template-columns:1fr 100px auto;column-gap:8px;align-items:center}
 .meal-item .delete-form{display:flex}
 .meals-list input[type="text"], .meals-list input[type="number"]{width:auto}
 

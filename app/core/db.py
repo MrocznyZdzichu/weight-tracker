@@ -1,7 +1,16 @@
 import os
+import shutil
 from sqlmodel import SQLModel, create_engine
 from app import models
-from .config import DATABASE_URL
+from .config import DATABASE_URL, DB_PATH
+
+# Logic to copy production DB to test DB if it doesn't exist
+if os.environ.get("ENV") == "test":
+    prod_db = "data/measurements.db"
+    test_db = DB_PATH
+    if not os.path.exists(test_db) and os.path.exists(prod_db):
+        print(f"Copying production database {prod_db} to {test_db}...")
+        shutil.copy2(prod_db, test_db)
 
 engine = create_engine(DATABASE_URL, connect_args={"check_same_thread": False})
 

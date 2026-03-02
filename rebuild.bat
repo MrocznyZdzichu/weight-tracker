@@ -1,3 +1,4 @@
-docker compose down
-docker compose build --no-cache
-docker compose up -d
+docker compose stop tracker
+docker compose rm -f tracker
+docker compose build tracker --no-cache
+docker compose up -d tracker
