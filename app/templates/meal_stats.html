@@ -1,0 +1,154 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="card">
+  <h2>Statystyki posiłków</h2>
+
+  <form method="get" class="filters-form">
+    <div class="filters-grid">
+      <label>Od:
+        <input type="date" name="from_date" value="{{ from_date }}">
+      </label>
+      <label>Do:
+        <input type="date" name="to_date" value="{{ to_date }}">
+      </label>
+      <div class="filter-actions">
+        <button type="submit" class="btn">Filtruj</button>
+        <a href="/meals/stats" class="btn btn-secondary">Wyczyść</a>
+      </div>
+    </div>
+    
+    <hr/>
+    
+    <div class="stats-layout">
+      <!-- Left Column: Top Meals -->
+      <div class="stats-column">
+        <h3>Najczęstsze posiłki (Top 10)</h3>
+        <img src="/plot-top-meals-freq?from_date={{ from_date }}&to_date={{ to_date }}" alt="Wykres częstotliwości" class="stats-plot">
+        
+        <hr/>
+        
+        <h3>Średnia kaloryczność najczęstszych posiłków</h3>
+        <img src="/plot-top-meals-avg-kcal?from_date={{ from_date }}&to_date={{ to_date }}" alt="Wykres kaloryczności" class="stats-plot">
+      </div>
+
+      <!-- Right Column: Specific Meal Analysis -->
+      <div class="stats-column">
+        <h3>Analiza konkretnego posiłku</h3>
+        <label for="meal-select">Wybierz posiłek:</label>
+        <select name="selected_meal" id="meal-select" class="form-select" onchange="this.form.submit()">
+          <option value="">-- wybierz posiłek --</option>
+          {% for name in all_meal_names %}
+            <option value="{{ name }}" {% if selected_meal == name %}selected{% endif %}>{{ name }}</option>
+          {% endfor %}
+        </select>
+
+        {% if meal_stats %}
+          <div class="meal-details card" style="margin-top: 15px; background: rgba(255,255,255,0.05);">
+            <h4>Statystyki dla: {{ selected_meal }}</h4>
+            <div class="stats-summary">
+              <div class="stat-item">
+                <span class="stat-label">Liczba spożyć:</span>
+                <span class="stat-value">{{ meal_stats.count }}</span>
+              </div>
+              <div class="stat-item">
+                <span class="stat-label">Min kcal:</span>
+                <span class="stat-value">{{ meal_stats.min }}</span>
+              </div>
+              <div class="stat-item">
+                <span class="stat-label">Średnia kcal:</span>
+                <span class="stat-value">{{ meal_stats.avg }}</span>
+              </div>
+              <div class="stat-item">
+                <span class="stat-label">Max kcal:</span>
+                <span class="stat-value">{{ meal_stats.max }}</span>
+              </div>
+              <div class="stat-item">
+                <span class="stat-label">Mediana kcal:</span>
+                <span class="stat-value">{{ meal_stats.median }}</span>
+              </div>
+            </div>
+          </div>
+          
+          <h3 style="margin-top: 20px;">Historia spożyć</h3>
+          <img src="/plot-meal-analysis?selected_meal={{ selected_meal }}&from_date={{ from_date }}&to_date={{ to_date }}" alt="Wykres analizy posiłku" class="stats-plot">
+        {% else %}
+          {% if selected_meal %}
+            <p>Brak danych dla wybranego posiłku w podanym zakresie dat.</p>
+          {% else %}
+            <p>Wybierz posiłek z listy powyżej, aby zobaczyć szczegółową analizę.</p>
+          {% endif %}
+        {% endif %}
+      </div>
+    </div>
+  </form>
+</div>
+
+<style>
+  .filters-grid {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 20px;
+    align-items: flex-end;
+    margin-bottom: 10px;
+  }
+  .filter-actions {
+    display: flex;
+    gap: 10px;
+  }
+  .stats-layout {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 30px;
+    margin-top: 20px;
+  }
+  .stats-column {
+    display: flex;
+    flex-direction: column;
+  }
+  .stats-plot {
+    width: 100%;
+    height: auto;
+    border-radius: 8px;
+    background: #fff; /* White background for plots to make them readable if they have transparent bg */
+    padding: 5px;
+  }
+  .form-select {
+    width: 100%;
+    padding: 10px;
+    border-radius: 8px;
+    background: #0c1424;
+    color: var(--text);
+    border: 1px solid var(--border);
+    margin-top: 5px;
+  }
+  .stats-summary {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 10px;
+  }
+  .stat-item {
+    display: flex;
+    flex-direction: column;
+  }
+  .stat-label {
+    font-size: 0.85em;
+    color: var(--muted);
+  }
+  .stat-value {
+    font-weight: bold;
+    font-size: 1.1em;
+  }
+  @media (max-width: 800px) {
+    .stats-layout {
+      grid-template-columns: 1fr;
+    }
+  }
+  input[type="date"] {
+    background: #0c1424;
+    color: var(--text);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 8px 12px;
+  }
+</style>
+{% endblock %}

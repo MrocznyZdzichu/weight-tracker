@@ -2,6 +2,7 @@ from fastapi import APIRouter, Request, Form
 from fastapi.responses import RedirectResponse
 from datetime import date, datetime
 from sqlmodel import Session, select
+import statistics
 from app.core.db import engine
 from app.core.templates import templates
 from app.models import Meal, User, SavedDay
@@ -179,5 +180,83 @@ def delete_meal(request: Request, meal_id: int):
         m = session.get(Meal, meal_id)
         if m and m.user_id == uid:
             session.delete(m)
+            session.commit()
+    return RedirectResponse("/meals", status_code=303)
+  
+@router.get("/meals/stats")
+def meals_stats(
+    request: Request,
+    from_date: str | None = None,
+    to_date: str | None = None,
+    selected_meal: str | None = None,
+):
+    uid = request.session.get("uid")
+    if not uid:
+        return RedirectResponse("/login", status_code=303)
+
+    d_from: date | None = None
+    d_to: date | None = None
+    try:
+        if from_date:
+            d_from = datetime.strptime(from_date, "%Y-%m-%d").date()
+    except Exception:
+        d_from = None
+    try:
+        if to_date:
+            d_to = datetime.strptime(to_date, "%Y-%m-%d").date()
+    except Exception:
+        d_to = None
+
+    with Session(engine) as session:
+        # Get all unique meal names for the dropdown
+        stmt = select(Meal.name).where(Meal.user_id == uid).distinct().order_by(Meal.name)
+        all_meal_names = session.exec(stmt).all()
+
+        meal_stats = None
+        if selected_meal:
+            stmt = select(Meal).where(Meal.user_id == uid, Meal.name == selected_meal)
+            if d_from:
+                stmt = stmt.where(Meal.date >= d_from)
+            if d_to:
+                stmt = stmt.where(Meal.date <= d_to)
+            
+            meals = session.exec(stmt).all()
+            if meals:
+                kcals = [int(m.kcal) for m in meals]
+                meal_stats = {
+                    "min": min(kcals),
+                    "max": max(kcals),
+                    "avg": round(sum(kcals) / len(kcals), 1),
+                    "median": statistics.median(kcals),
+                    "count": len(kcals)
+                }
+
+    return templates.TemplateResponse(
+        "meal_stats.html",
+        {
+            "request": request,
+            "all_meal_names": all_meal_names,
+            "selected_meal": selected_meal,
+            "meal_stats": meal_stats,
+            "from_date": from_date or "",
+            "to_date": to_date or "",
+        },
+    )
+
+@router.post("/meals/copy/{meal_id}")
+def copy_meal(request: Request, meal_id: int):
+    uid = request.session.get("uid")
+    if not uid:
+        return RedirectResponse("/login", status_code=303)
+    with Session(engine) as session:
+        m = session.get(Meal, meal_id)
+        if m and m.user_id == uid:
+            new_meal = Meal(
+                date=date.today(),
+                name=m.name,
+                kcal=m.kcal,
+                user_id=uid
+            )
+            session.add(new_meal)
             session.commit()
     return RedirectResponse("/meals", status_code=303)
