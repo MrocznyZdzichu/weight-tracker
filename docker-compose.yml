@@ -2,8 +2,26 @@ version: "3.8"
 services:
   tracker:
     build: .
+    image: tracker:prod
+    environment:
+      - ENV=prod
+      - DB_PATH=data/measurements.db
+      - APP_PORT=8200
     ports:
       - "8200:8200"
+    volumes:
+      - ./data:/app/data
+    restart: unless-stopped
+
+  tracker-test:
+    build: .
+    image: tracker:test
+    environment:
+      - ENV=test
+      - DB_PATH=data/measurements_test.db
+      - APP_PORT=8201
+    ports:
+      - "8201:8201"
     volumes:
       - ./data:/app/data
     restart: unless-stopped
