@@ -1,154 +1,212 @@
 {% extends "base.html" %}
 {% block content %}
 <div class="card">
-  <h2>Statystyki posiłków</h2>
+  <h2>Interaktywna Analiza Posiłków</h2>
 
-  <form method="get" class="filters-form">
-    <div class="filters-grid">
-      <label>Od:
-        <input type="date" name="from_date" value="{{ from_date }}">
-      </label>
-      <label>Do:
-        <input type="date" name="to_date" value="{{ to_date }}">
-      </label>
-      <div class="filter-actions">
-        <button type="submit" class="btn">Filtruj</button>
-        <a href="/meals/stats" class="btn btn-secondary">Wyczyść</a>
-      </div>
-    </div>
-    
-    <hr/>
-    
-    <div class="stats-layout">
-      <!-- Left Column: Top Meals -->
-      <div class="stats-column">
-        <h3>Najczęstsze posiłki (Top 10)</h3>
-        <img src="/plot-top-meals-freq?from_date={{ from_date }}&to_date={{ to_date }}" alt="Wykres częstotliwości" class="stats-plot">
-        
-        <hr/>
-        
-        <h3>Średnia kaloryczność najczęstszych posiłków</h3>
-        <img src="/plot-top-meals-avg-kcal?from_date={{ from_date }}&to_date={{ to_date }}" alt="Wykres kaloryczności" class="stats-plot">
-      </div>
+  <form method="get" id="stats-form">
+    <div class="controls-grid">
+      <!-- Date Filters -->
+      <label>Od: <input type="date" name="from_date" value="{{ from_date }}"></label>
+      <label>Do: <input type="date" name="to_date" value="{{ to_date }}"></label>
 
-      <!-- Right Column: Specific Meal Analysis -->
-      <div class="stats-column">
-        <h3>Analiza konkretnego posiłku</h3>
-        <label for="meal-select">Wybierz posiłek:</label>
-        <select name="selected_meal" id="meal-select" class="form-select" onchange="this.form.submit()">
-          <option value="">-- wybierz posiłek --</option>
-          {% for name in all_meal_names %}
-            <option value="{{ name }}" {% if selected_meal == name %}selected{% endif %}>{{ name }}</option>
-          {% endfor %}
+      <!-- View Switcher -->
+      <label>Widok:
+        <select name="view_mode" onchange="this.form.submit()">
+          <option value="table" {% if view_mode == 'table' %}selected{% endif %}>Tabela</option>
+          <option value="graph" {% if view_mode == 'graph' %}selected{% endif %}>Wykres</option>
         </select>
+      </label>
 
-        {% if meal_stats %}
-          <div class="meal-details card" style="margin-top: 15px; background: rgba(255,255,255,0.05);">
-            <h4>Statystyki dla: {{ selected_meal }}</h4>
-            <div class="stats-summary">
-              <div class="stat-item">
-                <span class="stat-label">Liczba spożyć:</span>
-                <span class="stat-value">{{ meal_stats.count }}</span>
-              </div>
-              <div class="stat-item">
-                <span class="stat-label">Min kcal:</span>
-                <span class="stat-value">{{ meal_stats.min }}</span>
-              </div>
-              <div class="stat-item">
-                <span class="stat-label">Średnia kcal:</span>
-                <span class="stat-value">{{ meal_stats.avg }}</span>
-              </div>
-              <div class="stat-item">
-                <span class="stat-label">Max kcal:</span>
-                <span class="stat-value">{{ meal_stats.max }}</span>
-              </div>
-              <div class="stat-item">
-                <span class="stat-label">Mediana kcal:</span>
-                <span class="stat-value">{{ meal_stats.median }}</span>
-              </div>
-            </div>
-          </div>
-          
-          <h3 style="margin-top: 20px;">Historia spożyć</h3>
-          <img src="/plot-meal-analysis?selected_meal={{ selected_meal }}&from_date={{ from_date }}&to_date={{ to_date }}" alt="Wykres analizy posiłku" class="stats-plot">
-        {% else %}
-          {% if selected_meal %}
-            <p>Brak danych dla wybranego posiłku w podanym zakresie dat.</p>
-          {% else %}
-            <p>Wybierz posiłek z listy powyżej, aby zobaczyć szczegółową analizę.</p>
-          {% endif %}
-        {% endif %}
+      <!-- Aggregation Functions -->
+      <div class="agg-checkboxes">
+        <span>Agregacje:</span>
+        <div class="checkbox-group">
+          <label><input type="checkbox" name="agg_func" value="mean" {% if 'mean' in agg_func %}checked{% endif %}> Średnia</label>
+          <label><input type="checkbox" name="agg_func" value="median" {% if 'median' in agg_func %}checked{% endif %}> Mediana</label>
+          <label><input type="checkbox" name="agg_func" value="sum" {% if 'sum' in agg_func %}checked{% endif %}> Suma</label>
+          <label><input type="checkbox" name="agg_func" value="count" {% if 'count' in agg_func %}checked{% endif %}> Liczba</label>
+          <label><input type="checkbox" name="agg_func" value="min" {% if 'min' in agg_func %}checked{% endif %}> Min</label>
+          <label><input type="checkbox" name="agg_func" value="max" {% if 'max' in agg_func %}checked{% endif %}> Max</label>
+          <label><input type="checkbox" name="agg_func" value="std" {% if 'std' in agg_func %}checked{% endif %}> Odchylenie std.</label>
+        </div>
+      </div>
+
+      <!-- Chart Type (only for graph view) -->
+      {% if view_mode == 'graph' %}
+      <label>Typ wykresu:
+        <select name="chart_type">
+          <option value="bar" {% if chart_type == 'bar' %}selected{% endif %}>Słupkowy</option>
+          <option value="pie" {% if chart_type == 'pie' %}selected{% endif %}>Kołowy</option>
+          <option value="box" {% if chart_type == 'box' %}selected{% endif %}>Pudełkowy</option>
+        </select>
+      </label>
+
+      <!-- Top N and Sort By -->
+      <label>Liczba posiłków (Top N):
+        <input type="number" name="top_n" value="{{ top_n }}" min="1" max="50">
+      </label>
+
+      <label>Sortuj/Kryterium wg:
+        <select name="sort_by">
+          <option value="mean" {% if sort_by == 'mean' %}selected{% endif %}>Średnia</option>
+          <option value="median" {% if sort_by == 'median' %}selected{% endif %}>Mediana</option>
+          <option value="sum" {% if sort_by == 'sum' %}selected{% endif %}>Suma</option>
+          <option value="count" {% if sort_by == 'count' %}selected{% endif %}>Liczba</option>
+          <option value="min" {% if sort_by == 'min' %}selected{% endif %}>Minimum</option>
+          <option value="max" {% if sort_by == 'max' %}selected{% endif %}>Maksimum</option>
+          <option value="std" {% if sort_by == 'std' %}selected{% endif %}>Odchylenie std.</option>
+        </select>
+      </label>
+      {% endif %}
+
+      <div class="form-actions" style="grid-column: 1 / -1; display: flex; gap: 10px; justify-content: flex-end; border-top: 1px solid var(--border); padding-top: 15px; margin-top: 10px;">
+        <a href="/meals/stats" class="btn btn-secondary">Resetuj filtry</a>
+        <button type="submit" class="btn">
+          {% if view_mode == 'graph' %}Odśwież Wykres{% else %}Zastosuj Filtry{% endif %}
+        </button>
       </div>
     </div>
   </form>
+
+  <hr/>
+
+  {% if chart_data %}
+    {% if view_mode == 'table' %}
+      <div id="table-container" data-view-mode="{{ view_mode }}" data-chart-data='{{ chart_data|tojson|safe }}'></div>
+    {% else %}
+      <div id="plotly-chart-container" data-view-mode="{{ view_mode }}" data-chart-data='{{ chart_data|tojson|safe }}'></div>
+    {% endif %}
+  {% else %}
+    <div class="alert" style="margin-top: 20px;">
+      Brak danych do wyświetlenia dla wybranych filtrów.
+    </div>
+  {% endif %}
 </div>
 
+<!-- DataTables CSS from CDN -->
+<link rel="stylesheet" type="text/css" href="https://cdn.datatables.net/1.13.6/css/jquery.dataTables.min.css">
+
+<!-- Plotly.js from CDN -->
+<script src="https://cdn.plot.ly/plotly-latest.min.js"></script>
+
+<!-- jQuery and DataTables JS from CDN -->
+<script src="https://code.jquery.com/jquery-3.7.0.js"></script>
+<script src="https://cdn.datatables.net/1.13.6/js/jquery.dataTables.min.js"></script>
+
+<script>
+  document.addEventListener("DOMContentLoaded", function() {
+    // Read data from HTML data attributes
+    const container = document.getElementById('table-container') || document.getElementById('plotly-chart-container');
+    if (!container) return;
+
+    const viewMode = container.getAttribute('data-view-mode');
+    const chartDataRaw = container.getAttribute('data-chart-data');
+    
+    if (!chartDataRaw) return;
+    const chartData = JSON.parse(chartDataRaw);
+
+    if (viewMode === 'graph' && chartData) {
+      const layout = {
+        paper_bgcolor: 'rgba(0,0,0,0)',
+        plot_bgcolor: 'rgba(0,0,0,0)',
+        font: { color: '#e5e7eb' },
+        xaxis: { 
+            gridcolor: '#1f2937'
+        },
+        yaxis: { gridcolor: '#1f2937' },
+        margin: { t: 50, b: 100 }
+      };
+      Plotly.newPlot('plotly-chart-container', chartData.data, { ...layout, ...chartData.layout });
+    } else if (viewMode === 'table' && chartData) {
+        const tableContainer = document.getElementById('table-container');
+        if (!tableContainer) return;
+        
+        let tableHTML = '<table id="interactive-datatable" class="display" style="width:100%"><thead><tr>';
+        chartData.header.forEach(h => { tableHTML += `<th>${h}</th>`; });
+        tableHTML += '</tr></thead><tbody>';
+        chartData.rows.forEach(row => {
+            tableHTML += '<tr>';
+            row.forEach(cell => { 
+                const val = (typeof cell === 'number') ? cell.toFixed(2) : (cell === null ? '' : cell);
+                tableHTML += `<td>${val}</td>`; 
+            });
+            tableHTML += '</tr>';
+        });
+        tableHTML += '</tbody></table>';
+        tableContainer.innerHTML = tableHTML;
+        
+        // Initialize DataTables
+        $(document).ready(function() {
+            $('#interactive-datatable').DataTable({
+                "language": {
+                    "url": "//cdn.datatables.net/plug-ins/1.13.6/i18n/pl.json"
+                },
+                "order": [[1, "desc"]]
+            });
+        });
+    }
+  });
+</script>
+
 <style>
-  .filters-grid {
+  .controls-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+    gap: 15px;
+    align-items: end;
+    margin-bottom: 20px;
+  }
+  .agg-checkboxes {
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+  }
+  .checkbox-group {
     display: flex;
     flex-wrap: wrap;
-    gap: 20px;
-    align-items: flex-end;
-    margin-bottom: 10px;
+    gap: 8px;
+    background: #0c1424;
+    padding: 8px;
+    border-radius: 8px;
+    border: 1px solid var(--border);
   }
-  .filter-actions {
+  .checkbox-group label {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    font-size: 0.9em;
+    cursor: pointer;
+  }
+  .checkbox-group input[type="checkbox"] {
+    cursor: pointer;
+  }
+  .form-actions {
     display: flex;
     gap: 10px;
   }
-  .stats-layout {
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-    gap: 30px;
-    margin-top: 20px;
-  }
-  .stats-column {
-    display: flex;
-    flex-direction: column;
-  }
-  .stats-plot {
-    width: 100%;
-    height: auto;
-    border-radius: 8px;
-    background: #fff; /* White background for plots to make them readable if they have transparent bg */
-    padding: 5px;
-  }
-  .form-select {
+  select, input[type="date"] {
     width: 100%;
     padding: 10px;
     border-radius: 8px;
     background: #0c1424;
     color: var(--text);
     border: 1px solid var(--border);
-    margin-top: 5px;
   }
-  .stats-summary {
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-    gap: 10px;
+  #plotly-chart-container, #table-container {
+    margin-top: 20px;
+    min-height: 450px;
   }
-  .stat-item {
-    display: flex;
-    flex-direction: column;
+  .interactive-table {
+      width: 100%;
+      border-collapse: collapse;
   }
-  .stat-label {
-    font-size: 0.85em;
-    color: var(--muted);
+  .interactive-table th, .interactive-table td {
+      padding: 12px;
+      border: 1px solid var(--border);
+      text-align: left;
   }
-  .stat-value {
-    font-weight: bold;
-    font-size: 1.1em;
-  }
-  @media (max-width: 800px) {
-    .stats-layout {
-      grid-template-columns: 1fr;
-    }
-  }
-  input[type="date"] {
-    background: #0c1424;
-    color: var(--text);
-    border: 1px solid var(--border);
-    border-radius: 10px;
-    padding: 8px 12px;
+  .interactive-table th {
+      background-color: #1f2937;
   }
 </style>
 {% endblock %}

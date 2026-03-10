@@ -1,4 +1,4 @@
-from typing import List, Optional
+from typing import List, Optional, Any, Dict
 from datetime import date
 import pandas as pd
 from sqlmodel import Session, select
@@ -12,7 +12,7 @@ def get_all_measurements(user_id: Optional[int] = None) -> List[Measurement]:
             stmt = stmt.where(Measurement.user_id == user_id)
         return session.exec(stmt).all()
 
-def compute_weekly_changes(measurements: List[Measurement]):
+def compute_weekly_changes(measurements: List[Measurement]) -> List[Dict[str, Any]]:
     if not measurements or len(measurements) < 2:
         return []
     df = pd.DataFrame([{"date": m.date, "weight": m.weight_kg} for m in measurements])
@@ -25,9 +25,12 @@ def compute_weekly_changes(measurements: List[Measurement]):
     df["kg_per_week"] = df["delta_weight"] / df["delta_days"] * 7
     weekly = df[["date", "kg_per_week"]].copy()
     weekly["kg_per_week"] = weekly["kg_per_week"].round(3)
+    weekly["date"] = weekly["date"].dt.date
     return weekly.to_dict(orient="records")
 
-def filter_by_periods(measurements: List[Measurement], filters_str: str | None):
+def filter_by_periods(
+    measurements: List[Measurement], filters_str: str | None
+) -> List[Measurement]:
     if not filters_str:
         return measurements
     tokens = [t.strip() for t in filters_str.split(",") if t.strip()]
@@ -66,7 +69,7 @@ def filter_by_periods(measurements: List[Measurement], filters_str: str | None):
             res.append(m)
     return res
 
-def is_truthy(v) -> bool:
+def is_truthy(v: Any) -> bool:
     if v is None:
         return False
     s = str(v).strip().lower()

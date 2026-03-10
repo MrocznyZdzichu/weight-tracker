@@ -1,10 +1,10 @@
 from urllib.parse import urljoin, urlparse, parse_qs, unquote
 import re
 import random
+import requests
+from bs4 import BeautifulSoup
 
 def search_recipe_links(query: str, limit: int = 20) -> list[str]:
-    import requests
-    from bs4 import BeautifulSoup
     url = "https://duckduckgo.com/html/"
     params = {"q": query}
     r = requests.get(url, params=params, timeout=8, headers={"User-Agent": "WeightTracker/1.0"})
@@ -35,8 +35,6 @@ def search_recipe_links(query: str, limit: int = 20) -> list[str]:
     return links
 
 def fetch_recipe_details(url: str) -> dict:
-    import requests
-    from bs4 import BeautifulSoup
     r = requests.get(url, timeout=8, headers={"User-Agent": "WeightTracker/1.0"})
     soup = BeautifulSoup(r.text, "html.parser")
     title = soup.title.get_text(strip=True) if soup.title else url
@@ -70,6 +68,7 @@ def find_recipes(ingredients: list[str], max_results: int = 5) -> list[dict]:
                 links.append(l)
     random.shuffle(links)
     results: list[dict] = []
+    seen_titles = set()
     for link in links:
         try:
             d = fetch_recipe_details(link)
@@ -82,9 +81,9 @@ def find_recipes(ingredients: list[str], max_results: int = 5) -> list[dict]:
                 ok = False
                 break
         if ok:
-            titles = {r["title"] for r in results}
-            if d["title"] in titles:
+            if d["title"] in seen_titles:
                 continue
+            seen_titles.add(d["title"])
             results.append(d)
             if len(results) >= max_results:
                 break

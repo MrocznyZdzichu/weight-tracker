@@ -4,7 +4,6 @@ from sqlmodel import SQLModel, create_engine
 from app import models
 from .config import DATABASE_URL, DB_PATH
 
-# Logic to copy production DB to test DB if it doesn't exist
 if os.environ.get("ENV") == "test":
     prod_db = "data/measurements.db"
     test_db = DB_PATH

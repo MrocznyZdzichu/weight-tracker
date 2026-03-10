@@ -265,7 +265,6 @@ def plot_top_meals_avg_kcal(request: Request, from_date: str | None = None, to_d
             meal_kcals[m.name] = []
         meal_kcals[m.name].append(int(m.kcal))
     
-    # Calculate average kcal for those top frequent meals
     avg_data = []
     for name in top10_freq:
         if name in meal_kcals:
@@ -277,10 +276,8 @@ def plot_top_meals_avg_kcal(request: Request, from_date: str | None = None, to_d
         names = [item[0] for item in avg_data]
         values = [item[1] for item in avg_data]
         
-        # Draw pie chart
         wedges, texts, autotexts = ax.pie(values, labels=names, autopct="%1.1f%%", startangle=140)
         
-        # Legend with labels and numerical values
         legend_labels = [f"{n}: {v:.1f} kcal" for n, v in zip(names, values)]
         ax.legend(wedges, legend_labels, title="Średnia kaloryczność", loc="center left", bbox_to_anchor=(1, 0, 0.5, 1))
         
@@ -323,7 +320,6 @@ def plot_meal_analysis(request: Request, selected_meal: str | None = None, from_
         
         meals = session.exec(stmt).all()
     
-    # Count consumption per day
     daily_counts = Counter(m.date for m in meals)
     sorted_days = sorted(daily_counts.keys())
     counts = [daily_counts[d] for d in sorted_days]

@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Request, Form
+from fastapi import APIRouter, Request, Form, Query
 from fastapi.responses import RedirectResponse
 from datetime import date, datetime
 from sqlmodel import Session, select
@@ -183,63 +183,208 @@ def delete_meal(request: Request, meal_id: int):
             session.commit()
     return RedirectResponse("/meals", status_code=303)
   
+import pandas as pd
+import numpy as np
+import plotly.express as px
+import plotly.graph_objects as go
+import json
+
 @router.get("/meals/stats")
 def meals_stats(
     request: Request,
     from_date: str | None = None,
     to_date: str | None = None,
-    selected_meal: str | None = None,
+    view_mode: str = 'table',
+    agg_func: list[str] = Query(default=['mean']),
+    chart_type: str = 'bar',
+    top_n: int = 10,
+    sort_by: str = 'mean',
 ):
     uid = request.session.get("uid")
     if not uid:
         return RedirectResponse("/login", status_code=303)
 
-    d_from: date | None = None
-    d_to: date | None = None
-    try:
-        if from_date:
-            d_from = datetime.strptime(from_date, "%Y-%m-%d").date()
-    except Exception:
-        d_from = None
-    try:
-        if to_date:
-            d_to = datetime.strptime(to_date, "%Y-%m-%d").date()
-    except Exception:
-        d_to = None
+    d_from = pd.to_datetime(from_date) if from_date else None
+    d_to = pd.to_datetime(to_date) if to_date else None
 
     with Session(engine) as session:
-        # Get all unique meal names for the dropdown
-        stmt = select(Meal.name).where(Meal.user_id == uid).distinct().order_by(Meal.name)
-        all_meal_names = session.exec(stmt).all()
+        stmt = select(Meal).where(Meal.user_id == uid)
+        meals = session.exec(stmt).all()
 
-        meal_stats = None
-        if selected_meal:
-            stmt = select(Meal).where(Meal.user_id == uid, Meal.name == selected_meal)
-            if d_from:
-                stmt = stmt.where(Meal.date >= d_from)
-            if d_to:
-                stmt = stmt.where(Meal.date <= d_to)
+    if not meals:
+        return templates.TemplateResponse("meal_stats.html", {
+            "request": request, 
+            "chart_data": None,
+            "from_date": from_date,
+            "to_date": to_date,
+            "view_mode": view_mode,
+            "agg_func": agg_func,
+            "chart_type": chart_type,
+            "top_n": top_n,
+            "sort_by": sort_by,
+        })
+
+    df = pd.DataFrame([m.dict() for m in meals])
+    df['date'] = pd.to_datetime(df['date'])
+
+    if d_from:
+        df = df[df['date'] >= d_from]
+    if d_to:
+        df = df[df['date'] <= d_to]
+
+    if df.empty:
+        return templates.TemplateResponse("meal_stats.html", {
+            "request": request, 
+            "chart_data": None,
+            "from_date": from_date,
+            "to_date": to_date,
+            "view_mode": view_mode,
+            "agg_func": agg_func,
+            "chart_type": chart_type,
+            "top_n": top_n,
+            "sort_by": sort_by,
+        })
+
+    agg_map = {
+        'mean': 'mean',
+        'median': 'median',
+        'sum': 'sum',
+        'count': 'count',
+        'min': 'min',
+        'max': 'max',
+        'std': 'std'
+    }
+    
+    friendly_names = {
+        'mean': 'Średnia',
+        'median': 'Mediana',
+        'sum': 'Suma',
+        'count': 'Liczba',
+        'min': 'Min',
+        'max': 'Max',
+        'std': 'Odchylenie'
+    }
+    
+    valid_aggs = [agg for agg in agg_func if agg in agg_map]
+    if not valid_aggs:
+        valid_aggs = ['mean']
+    
+    if view_mode == 'graph' and sort_by not in valid_aggs:
+        valid_aggs.append(sort_by)
+    
+    agg_df = df.groupby('name')['kcal'].agg([agg_map[a] for a in valid_aggs]).reset_index()
+    agg_df.rename(columns={'name': 'Posiłek'}, inplace=True)
+    
+    cols_to_rename = {agg_map[a]: friendly_names[a] for a in valid_aggs}
+    agg_df.rename(columns=cols_to_rename, inplace=True)
+    
+    sort_col = friendly_names.get(sort_by)
+    
+    if sort_col not in agg_df.columns:
+        if sort_by in agg_map:
+            temp_agg = df.groupby('name')['kcal'].agg(agg_map[sort_by]).reset_index()
+            temp_agg.columns = ['Posiłek', sort_col]
+            agg_df = pd.merge(agg_df, temp_agg, on='Posiłek')
+        else:
+            sort_col = agg_df.columns[1]
+    
+    agg_df = agg_df.sort_values(by=sort_col, ascending=False)
+    agg_df = agg_df.astype(object).replace(np.nan, None)
+
+    requested_aggs_friendly = [friendly_names[a] for a in agg_func if a in friendly_names]
+    if not requested_aggs_friendly:
+        requested_aggs_friendly = [friendly_names.get('mean', 'Średnia')]
+
+    chart_data = None
+    if view_mode == 'graph':
+        plot_df = agg_df.head(top_n).copy().reset_index(drop=True)
+        
+        y_cols = requested_aggs_friendly
+        
+        if len(y_cols) == 1:
+            chart_title = f'{y_cols[0]} - Top {top_n} posiłków (sortowanie: {sort_col})'
+        else:
+            chart_title = f'Statystyki - Top {top_n} posiłków (sortowanie: {sort_col})'
+
+        if chart_type == 'bar':
+            fig = go.Figure()
+
+            for col in y_cols:
+                fig.add_trace(go.Bar(
+                    x=plot_df['Posiłek'].tolist(),
+                    y=plot_df[col].tolist(),
+                    name=col
+                ))
             
-            meals = session.exec(stmt).all()
-            if meals:
-                kcals = [int(m.kcal) for m in meals]
-                meal_stats = {
-                    "min": min(kcals),
-                    "max": max(kcals),
-                    "avg": round(sum(kcals) / len(kcals), 1),
-                    "median": statistics.median(kcals),
-                    "count": len(kcals)
-                }
+            fig.update_layout(
+                barmode='group',
+                title=chart_title,
+                template="plotly_dark"
+            )
+            fig.update_xaxes(categoryorder='array', categoryarray=plot_df['Posiłek'].tolist())
+        
+        elif chart_type == 'pie':
+            fig = go.Figure(data=[go.Pie(
+                labels=plot_df['Posiłek'].tolist(),
+                values=plot_df[y_cols[0]].tolist(),
+                hole=.3
+            )])
+            fig.update_layout(
+                title_text=chart_title,
+                template="plotly_dark"
+            )
+        elif chart_type == 'box':
+            top_names = plot_df['Posiłek'].tolist()
+            box_df = df[df['name'].isin(top_names)]
+            
+            fig = go.Figure()
+            for name in top_names:
+                fig.add_trace(go.Box(
+                    y=box_df[box_df['name'] == name]['kcal'].tolist(),
+                    name=name
+                ))
+            fig.update_layout(
+                title_text=f'Rozkład kcal dla Top {top_n} posiłków',
+                template="plotly_dark",
+                xaxis_title="Posiłek",
+                yaxis_title="kcal"
+            )
+        
+        if chart_type in ['bar', 'box']:
+            fig.update_layout(
+                xaxis={'type': 'category'}
+            )
+            if chart_type == 'bar':
+                fig.update_xaxes(categoryorder='array', categoryarray=plot_df['Posiłek'].tolist())
+
+        fig.update_layout(
+            paper_bgcolor='rgba(0,0,0,0)',
+            plot_bgcolor='rgba(0,0,0,0)'
+        )
+        chart_data = json.loads(fig.to_json())
+
+    else:
+        requested_friendly_names = [friendly_names[a] for a in agg_func if a in friendly_names]
+        table_cols = ['Posiłek'] + requested_friendly_names
+        display_df = agg_df[[c for c in table_cols if c in agg_df.columns]]
+        
+        chart_data = {
+            "header": display_df.columns.tolist(),
+            "rows": display_df.values.tolist()
+        }
 
     return templates.TemplateResponse(
         "meal_stats.html",
         {
             "request": request,
-            "all_meal_names": all_meal_names,
-            "selected_meal": selected_meal,
-            "meal_stats": meal_stats,
-            "from_date": from_date or "",
-            "to_date": to_date or "",
+            "from_date": from_date,
+            "to_date": to_date,
+            "view_mode": view_mode,
+            "agg_func": agg_func,
+            "chart_type": chart_type,
+            "top_n": top_n,
+            "sort_by": sort_by,
+            "chart_data": chart_data,
         },
     )
 
