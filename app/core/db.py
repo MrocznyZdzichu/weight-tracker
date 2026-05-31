@@ -26,3 +26,7 @@ def ensure_schema():
         ucols = [r[1] for r in conn.exec_driver_sql("PRAGMA table_info('user')").fetchall()]
         if "daily_kcal_goal" not in ucols:
             conn.exec_driver_sql("ALTER TABLE user ADD COLUMN daily_kcal_goal INTEGER DEFAULT 2000")
+        
+        mcols = [r[1] for r in conn.exec_driver_sql("PRAGMA table_info('meal')").fetchall()]
+        if mcols and "category" not in mcols:
+            conn.exec_driver_sql("ALTER TABLE meal ADD COLUMN category TEXT")

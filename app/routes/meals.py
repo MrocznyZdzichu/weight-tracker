@@ -32,20 +32,22 @@ def meals_today(request: Request):
             "total": total,
             "goal": goal,
             "remaining": remaining,
+            "meal_kcal_modes": request.session.get("meal_kcal_modes", {}),
         },
     )
 
 @router.post("/meals/add")
-def add_meal(request: Request, name: str = Form(...), kcal: int = Form(...)):
+def add_meal(request: Request, name: str = Form(...), kcal: int = Form(...), category: str = Form(None)):
     uid = request.session.get("uid")
     if not uid:
         return RedirectResponse("/login", status_code=303)
     name = name.strip()
     kcal = int(kcal)
+    category = category.strip() if category else None
     if not name or kcal <= 0:
         return RedirectResponse("/meals", status_code=303)
     with Session(engine) as session:
-        m = Meal(date=date.today(), name=name, kcal=kcal, user_id=uid)
+        m = Meal(date=date.today(), name=name, kcal=kcal, category=category, user_id=uid)
         session.add(m)
         session.commit()
     return RedirectResponse("/meals", status_code=303)
@@ -69,12 +71,13 @@ def set_goal(request: Request, goal: int = Form(...)):
     return RedirectResponse("/meals", status_code=303)
 
 @router.post("/meals/edit/{meal_id}")
-def edit_meal(request: Request, meal_id: int, name: str = Form(...), kcal: int = Form(...)):
+def edit_meal(request: Request, meal_id: int, name: str = Form(...), kcal: int = Form(...), category: str = Form(None)):
     uid = request.session.get("uid")
     if not uid:
         return RedirectResponse("/login", status_code=303)
     name = name.strip()
     kcal = int(kcal)
+    category = category.strip() if category else None
     if not name or kcal <= 0:
         return RedirectResponse("/meals", status_code=303)
     with Session(engine) as session:
@@ -82,6 +85,7 @@ def edit_meal(request: Request, meal_id: int, name: str = Form(...), kcal: int =
         if m and m.user_id == uid:
             m.name = name
             m.kcal = kcal
+            m.category = category
             session.add(m)
             session.commit()
     return RedirectResponse("/meals", status_code=303)
@@ -196,9 +200,11 @@ def meals_stats(
     to_date: str | None = None,
     view_mode: str = 'table',
     agg_func: list[str] = Query(default=['mean']),
+    category_filter: list[str] = Query(default=[]),
     chart_type: str = 'bar',
     top_n: int = 10,
     sort_by: str = 'mean',
+    agg_by: str = 'name',
 ):
     uid = request.session.get("uid")
     if not uid:
@@ -219,9 +225,12 @@ def meals_stats(
             "to_date": to_date,
             "view_mode": view_mode,
             "agg_func": agg_func,
+            "category_filter": category_filter,
+            "categories": [],
             "chart_type": chart_type,
             "top_n": top_n,
             "sort_by": sort_by,
+            "agg_by": agg_by,
         })
 
     df = pd.DataFrame([m.dict() for m in meals])
@@ -240,9 +249,12 @@ def meals_stats(
             "to_date": to_date,
             "view_mode": view_mode,
             "agg_func": agg_func,
+            "category_filter": category_filter,
+            "categories": [],
             "chart_type": chart_type,
             "top_n": top_n,
             "sort_by": sort_by,
+            "agg_by": agg_by,
         })
 
     agg_map = {
@@ -268,25 +280,69 @@ def meals_stats(
     valid_aggs = [agg for agg in agg_func if agg in agg_map]
     if not valid_aggs:
         valid_aggs = ['mean']
-    
-    if view_mode == 'graph' and sort_by not in valid_aggs:
+
+    if sort_by not in valid_aggs:
         valid_aggs.append(sort_by)
+
+    category_filter = [c.strip() for c in (category_filter or []) if c and c.strip()]
+    if "category" not in df.columns:
+        df["category"] = None
+    df["category"] = df["category"].astype(object).replace(np.nan, None)
+    df["category_norm"] = df["category"].apply(lambda v: v.strip() if isinstance(v, str) and v.strip() else None)
+
+    has_uncategorized = bool(df["category_norm"].isna().any())
+    categories: list[dict[str, str]] = []
+    if has_uncategorized:
+        categories.append({"value": "__none__", "label": "Brak kategorii"})
+    unique_categories = sorted({v for v in df["category_norm"].tolist() if v})
+    categories.extend([{"value": v, "label": v} for v in unique_categories])
+
+    if category_filter:
+        selected = set(category_filter)
+        include_none = "__none__" in selected
+        selected.discard("__none__")
+        mask = df["category_norm"].isin(selected) if selected else pd.Series(False, index=df.index)
+        if include_none:
+            mask = mask | df["category_norm"].isna()
+        df = df[mask]
+        if df.empty:
+            return templates.TemplateResponse("meal_stats.html", {
+                "request": request,
+                "chart_data": None,
+                "from_date": from_date,
+                "to_date": to_date,
+                "view_mode": view_mode,
+                "agg_func": agg_func,
+                "category_filter": category_filter,
+                "categories": categories,
+                "chart_type": chart_type,
+                "top_n": top_n,
+                "sort_by": sort_by,
+                "agg_by": agg_by,
+            })
     
-    agg_df = df.groupby('name')['kcal'].agg([agg_map[a] for a in valid_aggs]).reset_index()
-    agg_df.rename(columns={'name': 'Posiłek'}, inplace=True)
+    if agg_by == 'category':
+        group_by_cols = ['category']
+        df['category'] = df['category'].fillna('Brak kategorii')
+    elif agg_by == 'category_name':
+        group_by_cols = ['category', 'name']
+        df['category'] = df['category'].fillna('Brak kategorii')
+    else: # name
+        group_by_cols = ['name']
+
+    agg_df = df.groupby(group_by_cols)['kcal'].agg([agg_map[a] for a in valid_aggs]).reset_index()
+    
+    if agg_by == 'name':
+        agg_df.rename(columns={'name': 'Posiłek'}, inplace=True)
+    elif agg_by == 'category':
+        agg_df.rename(columns={'category': 'Kategoria'}, inplace=True)
+    elif agg_by == 'category_name':
+        agg_df.rename(columns={'category': 'Kategoria', 'name': 'Posiłek'}, inplace=True)
     
     cols_to_rename = {agg_map[a]: friendly_names[a] for a in valid_aggs}
     agg_df.rename(columns=cols_to_rename, inplace=True)
     
-    sort_col = friendly_names.get(sort_by)
-    
-    if sort_col not in agg_df.columns:
-        if sort_by in agg_map:
-            temp_agg = df.groupby('name')['kcal'].agg(agg_map[sort_by]).reset_index()
-            temp_agg.columns = ['Posiłek', sort_col]
-            agg_df = pd.merge(agg_df, temp_agg, on='Posiłek')
-        else:
-            sort_col = agg_df.columns[1]
+    sort_col = friendly_names.get(sort_by, agg_df.columns[1])
     
     agg_df = agg_df.sort_values(by=sort_col, ascending=False)
     agg_df = agg_df.astype(object).replace(np.nan, None)
@@ -296,76 +352,62 @@ def meals_stats(
         requested_aggs_friendly = [friendly_names.get('mean', 'Średnia')]
 
     chart_data = None
-    if view_mode == 'graph':
-        plot_df = agg_df.head(top_n).copy().reset_index(drop=True)
-        
-        y_cols = requested_aggs_friendly
-        
-        if len(y_cols) == 1:
-            chart_title = f'{y_cols[0]} - Top {top_n} posiłków (sortowanie: {sort_col})'
+    if view_mode == 'graph' and not agg_df.empty:
+        sort_col_friendly = friendly_names.get(sort_by, sort_by)
+        plot_df = agg_df.sort_values(by=sort_col_friendly, ascending=False).head(top_n)
+        y_cols = requested_aggs_friendly or [sort_col_friendly]
+
+        if agg_by == 'category_name':
+            plot_df['display_name'] = plot_df['Kategoria'] + ' > ' + plot_df['Posiłek']
+            x_axis_col = 'display_name'
+        elif agg_by == 'category':
+            x_axis_col = 'Kategoria'
         else:
-            chart_title = f'Statystyki - Top {top_n} posiłków (sortowanie: {sort_col})'
+            x_axis_col = 'Posiłek'
 
         if chart_type == 'bar':
-            fig = go.Figure()
-
-            for col in y_cols:
-                fig.add_trace(go.Bar(
-                    x=plot_df['Posiłek'].tolist(),
-                    y=plot_df[col].tolist(),
-                    name=col
-                ))
-            
-            fig.update_layout(
-                barmode='group',
-                title=chart_title,
-                template="plotly_dark"
-            )
-            fig.update_xaxes(categoryorder='array', categoryarray=plot_df['Posiłek'].tolist())
-        
+            if len(y_cols) == 1:
+                fig = px.bar(plot_df, x=x_axis_col, y=y_cols[0], title=f'Top {top_n} (ranking: {sort_col_friendly})')
+            else:
+                fig = go.Figure()
+                x_vals = plot_df[x_axis_col].tolist()
+                for col in y_cols:
+                    fig.add_trace(go.Bar(x=x_vals, y=plot_df[col].tolist(), name=col))
+                fig.update_layout(barmode='group', title=f'Top {top_n} (ranking: {sort_col_friendly})')
+                fig.update_xaxes(categoryorder='array', categoryarray=x_vals)
         elif chart_type == 'pie':
-            fig = go.Figure(data=[go.Pie(
-                labels=plot_df['Posiłek'].tolist(),
-                values=plot_df[y_cols[0]].tolist(),
-                hole=.3
-            )])
-            fig.update_layout(
-                title_text=chart_title,
-                template="plotly_dark"
-            )
+            fig = px.pie(plot_df, names=x_axis_col, values=sort_col_friendly, title=f'Top {top_n} wg {sort_col_friendly}')
         elif chart_type == 'box':
-            top_names = plot_df['Posiłek'].tolist()
-            box_df = df[df['name'].isin(top_names)]
-            
-            fig = go.Figure()
-            for name in top_names:
-                fig.add_trace(go.Box(
-                    y=box_df[box_df['name'] == name]['kcal'].tolist(),
-                    name=name
-                ))
-            fig.update_layout(
-                title_text=f'Rozkład kcal dla Top {top_n} posiłków',
-                template="plotly_dark",
-                xaxis_title="Posiłek",
-                yaxis_title="kcal"
-            )
-        
-        if chart_type in ['bar', 'box']:
-            fig.update_layout(
-                xaxis={'type': 'category'}
-            )
-            if chart_type == 'bar':
-                fig.update_xaxes(categoryorder='array', categoryarray=plot_df['Posiłek'].tolist())
+            if agg_by == 'name':
+                top_names = plot_df['Posiłek'].tolist()
+                box_df = df[df['name'].isin(top_names)]
+                fig = px.box(box_df, x='name', y='kcal', title=f'Rozkład kcal dla Top {top_n} posiłków', category_orders={"name": top_names})
+            elif agg_by == 'category':
+                top_categories = plot_df['Kategoria'].tolist()
+                box_df = df[df['category'].isin(top_categories)]
+                fig = px.box(box_df, x='category', y='kcal', title=f'Rozkład kcal dla Top {top_n} kategorii', category_orders={"category": top_categories})
+            else: # category_name
+                # Box plot for category_name is complex, fallback to bar
+                fig = px.bar(plot_df, x=x_axis_col, y=y_cols[0], title=f'Top {top_n} (ranking: {sort_col_friendly})')
 
         fig.update_layout(
             paper_bgcolor='rgba(0,0,0,0)',
-            plot_bgcolor='rgba(0,0,0,0)'
+            plot_bgcolor='rgba(0,0,0,0)',
+            font={ 'color': '#e5e7eb' },
+            xaxis={ 'gridcolor': '#1f2937' },
+            yaxis={ 'gridcolor': '#1f2937' },
+            margin={ 't': 50, 'b': 100 }
         )
         chart_data = json.loads(fig.to_json())
 
     else:
-        requested_friendly_names = [friendly_names[a] for a in agg_func if a in friendly_names]
-        table_cols = ['Posiłek'] + requested_friendly_names
+        if agg_by == 'category_name':
+            table_cols = ['Kategoria', 'Posiłek'] + [friendly_names.get(a) for a in agg_func if a in friendly_names]
+        elif agg_by == 'category':
+            table_cols = ['Kategoria'] + [friendly_names.get(a) for a in agg_func if a in friendly_names]
+        else:
+            table_cols = ['Posiłek'] + [friendly_names.get(a) for a in agg_func if a in friendly_names]
+        
         display_df = agg_df[[c for c in table_cols if c in agg_df.columns]]
         
         chart_data = {
@@ -381,9 +423,12 @@ def meals_stats(
             "to_date": to_date,
             "view_mode": view_mode,
             "agg_func": agg_func,
+            "category_filter": category_filter,
+            "categories": categories,
             "chart_type": chart_type,
             "top_n": top_n,
             "sort_by": sort_by,
+            "agg_by": agg_by,
             "chart_data": chart_data,
         },
     )
@@ -400,6 +445,7 @@ def copy_meal(request: Request, meal_id: int):
                 date=date.today(),
                 name=m.name,
                 kcal=m.kcal,
+                category=m.category,
                 user_id=uid
             )
             session.add(new_meal)

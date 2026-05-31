@@ -4,11 +4,20 @@
   <h2>Posiłki dzisiaj</h2>
   <form action="/meals/add" method="post">
     <label>Nazwa produktu:
-      <input type="text" name="name" placeholder="np. jabłko, kanapka" required>
+      <input type="text" name="name" id="meal-name-input" placeholder="np. jabłko, kanapka" required>
+    </label>
+    <br/><br/>
+    <label>Kategoria (opcjonalnie):
+      <input type="text" name="category" placeholder="np. obiad, śniadanie">
     </label>
     <br/><br/>
     <label>Kcal:
-      <input type="number" name="kcal" min="1" max="5000" step="1" placeholder="np. 250" required>
+      <input type="number" name="kcal" id="meal-kcal-input" min="1" max="5000" step="1" placeholder="np. 250" required>
+    </label>
+    <br/><br/>
+    <label class="checkbox-label">
+      <input type="checkbox" id="meal-autofill-checkbox">
+      Automatyczne uzupełnianie
     </label>
     <br/><br/>
     <button type="submit" class="btn">Dodaj posiłek</button>
@@ -39,6 +48,7 @@
       <li class="meal-item">
         <form action="/meals/edit/{{ m.id }}" method="post" class="edit-form">
           <input type="text" name="name" value="{{ m.name }}" required>
+          <input type="text" name="category" value="{{ m.category or '' }}" placeholder="Kategoria">
           <input type="number" name="kcal" min="1" max="5000" step="1" value="{{ m.kcal }}" required>
           <button type="submit" class="btn btn-sm">Zapisz</button>
         </form>
@@ -57,4 +67,36 @@
     <p>Brak posiłków dodanych dzisiaj.</p>
   {% endif %}
 </div>
+<script>
+  const mealKcalModes = {{ meal_kcal_modes | default({}) | tojson }};
+  const mealNameInput = document.getElementById("meal-name-input");
+  const mealKcalInput = document.getElementById("meal-kcal-input");
+  const mealAutofillCheckbox = document.getElementById("meal-autofill-checkbox");
+  const mealAutofillStorageKey = "mealAutofillEnabled";
+
+  function normalizeMealName(name) {
+    return name.trim().toLowerCase().replace(/\s+/g, " ");
+  }
+
+  function fillMealKcalFromMode() {
+    if (!mealAutofillCheckbox.checked) {
+      return;
+    }
+
+    const kcal = mealKcalModes[normalizeMealName(mealNameInput.value)];
+    mealKcalInput.value = kcal !== undefined && kcal !== null ? kcal : "";
+  }
+
+  try {
+    mealAutofillCheckbox.checked = localStorage.getItem(mealAutofillStorageKey) === "true";
+  } catch (error) {}
+
+  mealNameInput.addEventListener("input", fillMealKcalFromMode);
+  mealAutofillCheckbox.addEventListener("change", () => {
+    try {
+      localStorage.setItem(mealAutofillStorageKey, mealAutofillCheckbox.checked ? "true" : "false");
+    } catch (error) {}
+    fillMealKcalFromMode();
+  });
+</script>
 {% endblock %}

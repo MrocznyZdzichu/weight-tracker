@@ -72,6 +72,8 @@ tr:hover td{background:rgba(255,255,255,.03)}
 
 form{margin:12px 0}
 label{color:var(--text)}
+.checkbox-label{display:inline-flex;align-items:center;gap:8px}
+.checkbox-label input{width:auto}
 input[type="text"], input[type="email"], input[type="password"], input[type="number"]{
   width:100%;max-width:420px;
   background:#0c1424;
@@ -110,7 +112,7 @@ li strong{display:block;margin-bottom:6px}
 .meals-list{display:grid;gap:8px}
 .meal-item{padding:8px;margin-bottom:0;display:flex;align-items:center;gap:8px;flex-wrap:nowrap}
 .meal-item form{margin:0}
-.meal-item .edit-form{display:grid;grid-template-columns:1fr 100px auto;column-gap:8px;align-items:center}
+.meal-item .edit-form{display:grid;grid-template-columns:minmax(240px,1fr) minmax(140px,200px) 100px auto;column-gap:8px;align-items:center}
 .meal-item .delete-form{display:flex}
 .meals-list input[type="text"], .meals-list input[type="number"]{width:auto}
 
@@ -118,5 +120,5 @@ li strong{display:block;margin-bottom:6px}
   .nav{gap:8px}
   .container{padding:12px}
   th,td{padding:10px}
-  .meal-item .edit-form{grid-template-columns:minmax(240px,1fr) 100px auto}
+  .meal-item .edit-form{grid-template-columns:minmax(180px,1fr) minmax(110px,160px) 90px auto}
 }

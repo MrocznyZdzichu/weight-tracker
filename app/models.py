@@ -20,6 +20,7 @@ class Meal(SQLModel, table=True):
     date: date
     name: str
     kcal: int
+    category: Optional[str] = Field(default=None)
     user_id: Optional[int] = Field(default=None)
 
 class SavedDay(SQLModel, table=True):

@@ -17,17 +17,74 @@
         </select>
       </label>
 
+      <!-- Aggregation By -->
+      <label>Grupuj według:
+        <select name="agg_by" onchange="this.form.submit()">
+          <option value="name" {% if agg_by == 'name' %}selected{% endif %}>Nazwa posiłku</option>
+          <option value="category" {% if agg_by == 'category' %}selected{% endif %}>Kategoria</option>
+          <option value="category_name" {% if agg_by == 'category_name' %}selected{% endif %}>Kategoria > Nazwa</option>
+        </select>
+      </label>
+
+      <div class="category-filter">
+        <span>Kategorie:</span>
+        <div class="multiselect" id="category-multiselect">
+          <button type="button" class="multiselect-control" aria-expanded="false">Wszystkie</button>
+          <div class="multiselect-menu">
+            <input type="text" class="multiselect-search" placeholder="Szukaj...">
+            <div class="multiselect-options">
+              {% for c in categories %}
+                <label class="multiselect-option">
+                  <input type="checkbox" name="category_filter" value="{{ c.value }}" {% if c.value in category_filter %}checked{% endif %}>
+                  <span>{{ c.label }}</span>
+                </label>
+              {% endfor %}
+              {% if not categories %}
+                <div class="small">Brak kategorii w danych.</div>
+              {% endif %}
+            </div>
+          </div>
+        </div>
+      </div>
+
       <!-- Aggregation Functions -->
-      <div class="agg-checkboxes">
+      <div class="agg-filter">
         <span>Agregacje:</span>
-        <div class="checkbox-group">
-          <label><input type="checkbox" name="agg_func" value="mean" {% if 'mean' in agg_func %}checked{% endif %}> Średnia</label>
-          <label><input type="checkbox" name="agg_func" value="median" {% if 'median' in agg_func %}checked{% endif %}> Mediana</label>
-          <label><input type="checkbox" name="agg_func" value="sum" {% if 'sum' in agg_func %}checked{% endif %}> Suma</label>
-          <label><input type="checkbox" name="agg_func" value="count" {% if 'count' in agg_func %}checked{% endif %}> Liczba</label>
-          <label><input type="checkbox" name="agg_func" value="min" {% if 'min' in agg_func %}checked{% endif %}> Min</label>
-          <label><input type="checkbox" name="agg_func" value="max" {% if 'max' in agg_func %}checked{% endif %}> Max</label>
-          <label><input type="checkbox" name="agg_func" value="std" {% if 'std' in agg_func %}checked{% endif %}> Odchylenie std.</label>
+        <div class="multiselect" id="agg-multiselect">
+          <button type="button" class="multiselect-control" aria-expanded="false">Wybrane: 1</button>
+          <div class="multiselect-menu">
+            <input type="text" class="multiselect-search" placeholder="Szukaj...">
+            <div class="multiselect-options">
+              <label class="multiselect-option">
+                <input type="checkbox" name="agg_func" value="mean" {% if 'mean' in agg_func %}checked{% endif %}>
+                <span>Średnia</span>
+              </label>
+              <label class="multiselect-option">
+                <input type="checkbox" name="agg_func" value="median" {% if 'median' in agg_func %}checked{% endif %}>
+                <span>Mediana</span>
+              </label>
+              <label class="multiselect-option">
+                <input type="checkbox" name="agg_func" value="sum" {% if 'sum' in agg_func %}checked{% endif %}>
+                <span>Suma</span>
+              </label>
+              <label class="multiselect-option">
+                <input type="checkbox" name="agg_func" value="count" {% if 'count' in agg_func %}checked{% endif %}>
+                <span>Liczba</span>
+              </label>
+              <label class="multiselect-option">
+                <input type="checkbox" name="agg_func" value="min" {% if 'min' in agg_func %}checked{% endif %}>
+                <span>Min</span>
+              </label>
+              <label class="multiselect-option">
+                <input type="checkbox" name="agg_func" value="max" {% if 'max' in agg_func %}checked{% endif %}>
+                <span>Max</span>
+              </label>
+              <label class="multiselect-option">
+                <input type="checkbox" name="agg_func" value="std" {% if 'std' in agg_func %}checked{% endif %}>
+                <span>Odchylenie std.</span>
+              </label>
+            </div>
+          </div>
         </div>
       </div>
 
@@ -95,14 +152,66 @@
 
 <script>
   document.addEventListener("DOMContentLoaded", function() {
-    // Read data from HTML data attributes
+    const initMultiselect = (id, emptyLabel) => {
+      const multiselect = document.getElementById(id);
+      if (!multiselect) return;
+
+      const toggle = multiselect.querySelector('.multiselect-control');
+      const search = multiselect.querySelector('.multiselect-search');
+      const optionsContainer = multiselect.querySelector('.multiselect-options');
+
+      const setOpen = (open) => {
+        multiselect.classList.toggle('open', open);
+        if (toggle) toggle.setAttribute('aria-expanded', open ? 'true' : 'false');
+        if (open && search) search.focus();
+      };
+
+      const updateLabel = () => {
+        if (!toggle) return;
+        const checkedCount = multiselect.querySelectorAll('input[type="checkbox"]:checked').length;
+        toggle.textContent = checkedCount ? `Wybrane: ${checkedCount}` : emptyLabel;
+      };
+
+      const filterOptions = () => {
+        if (!search || !optionsContainer) return;
+        const q = (search.value || '').trim().toLowerCase();
+        optionsContainer.querySelectorAll('.multiselect-option').forEach((opt) => {
+          const text = (opt.textContent || '').trim().toLowerCase();
+          opt.style.display = (!q || text.includes(q)) ? '' : 'none';
+        });
+      };
+
+      updateLabel();
+
+      if (toggle) {
+        toggle.addEventListener('click', (e) => {
+          e.preventDefault();
+          setOpen(!multiselect.classList.contains('open'));
+        });
+      }
+
+      document.addEventListener('click', (e) => {
+        if (!multiselect.contains(e.target)) setOpen(false);
+      });
+
+      if (search) {
+        search.addEventListener('click', (e) => e.stopPropagation());
+        search.addEventListener('input', filterOptions);
+      }
+
+      multiselect.querySelectorAll('input[type="checkbox"]').forEach((cb) => cb.addEventListener('change', updateLabel));
+    };
+
+    initMultiselect('category-multiselect', 'Wszystkie');
+    initMultiselect('agg-multiselect', 'Średnia');
+
     const container = document.getElementById('table-container') || document.getElementById('plotly-chart-container');
     if (!container) return;
 
     const viewMode = container.getAttribute('data-view-mode');
     const chartDataRaw = container.getAttribute('data-chart-data');
-    
     if (!chartDataRaw) return;
+
     const chartData = JSON.parse(chartDataRaw);
 
     if (viewMode === 'graph' && chartData) {
@@ -110,40 +219,37 @@
         paper_bgcolor: 'rgba(0,0,0,0)',
         plot_bgcolor: 'rgba(0,0,0,0)',
         font: { color: '#e5e7eb' },
-        xaxis: { 
-            gridcolor: '#1f2937'
-        },
+        xaxis: { gridcolor: '#1f2937' },
         yaxis: { gridcolor: '#1f2937' },
         margin: { t: 50, b: 100 }
       };
       Plotly.newPlot('plotly-chart-container', chartData.data, { ...layout, ...chartData.layout });
     } else if (viewMode === 'table' && chartData) {
-        const tableContainer = document.getElementById('table-container');
-        if (!tableContainer) return;
-        
-        let tableHTML = '<table id="interactive-datatable" class="display" style="width:100%"><thead><tr>';
-        chartData.header.forEach(h => { tableHTML += `<th>${h}</th>`; });
-        tableHTML += '</tr></thead><tbody>';
-        chartData.rows.forEach(row => {
-            tableHTML += '<tr>';
-            row.forEach(cell => { 
-                const val = (typeof cell === 'number') ? cell.toFixed(2) : (cell === null ? '' : cell);
-                tableHTML += `<td>${val}</td>`; 
-            });
-            tableHTML += '</tr>';
+      const tableContainer = document.getElementById('table-container');
+      if (!tableContainer) return;
+
+      let tableHTML = '<table id="interactive-datatable" class="display" style="width:100%"><thead><tr>';
+      chartData.header.forEach(h => { tableHTML += `<th>${h}</th>`; });
+      tableHTML += '</tr></thead><tbody>';
+      chartData.rows.forEach(row => {
+        tableHTML += '<tr>';
+        row.forEach(cell => {
+          const val = (typeof cell === 'number') ? cell.toFixed(2) : (cell === null ? '' : cell);
+          tableHTML += `<td>${val}</td>`;
         });
-        tableHTML += '</tbody></table>';
-        tableContainer.innerHTML = tableHTML;
-        
-        // Initialize DataTables
-        $(document).ready(function() {
-            $('#interactive-datatable').DataTable({
-                "language": {
-                    "url": "//cdn.datatables.net/plug-ins/1.13.6/i18n/pl.json"
-                },
-                "order": [[1, "desc"]]
-            });
+        tableHTML += '</tr>';
+      });
+      tableHTML += '</tbody></table>';
+      tableContainer.innerHTML = tableHTML;
+
+      $(document).ready(function() {
+        $('#interactive-datatable').DataTable({
+          "language": {
+            "url": "//cdn.datatables.net/plug-ins/1.13.6/i18n/pl.json"
+          },
+          "order": [[1, "desc"]]
         });
+      });
     }
   });
 </script>
@@ -157,6 +263,11 @@
     margin-bottom: 20px;
   }
   .agg-checkboxes {
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+  }
+  .category-filter, .agg-filter {
     display: flex;
     flex-direction: column;
     gap: 5px;
@@ -191,6 +302,59 @@
     background: #0c1424;
     color: var(--text);
     border: 1px solid var(--border);
+  }
+  .multiselect {
+    position: relative;
+  }
+  .multiselect-control {
+    width: 100%;
+    padding: 10px;
+    border-radius: 8px;
+    background: #0c1424;
+    color: var(--text);
+    border: 1px solid var(--border);
+    text-align: left;
+    cursor: pointer;
+  }
+  .multiselect-menu {
+    display: none;
+    position: absolute;
+    top: calc(100% + 6px);
+    left: 0;
+    right: 0;
+    background: #0c1424;
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 10px;
+    z-index: 20;
+    box-shadow: 0 12px 30px rgba(0,0,0,.35);
+  }
+  .multiselect.open .multiselect-menu {
+    display: block;
+  }
+  .multiselect-search {
+    width: 100%;
+    max-width: none;
+    margin: 0 0 8px 0;
+    padding: 8px 10px;
+    border-radius: 8px;
+  }
+  .multiselect-options {
+    max-height: 240px;
+    overflow: auto;
+    display: grid;
+    gap: 6px;
+  }
+  .multiselect-option {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 6px 8px;
+    border-radius: 8px;
+    cursor: pointer;
+  }
+  .multiselect-option:hover {
+    background: rgba(255,255,255,.06);
   }
   #plotly-chart-container, #table-container {
     margin-top: 20px;
