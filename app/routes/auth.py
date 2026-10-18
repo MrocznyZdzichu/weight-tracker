@@ -5,7 +5,6 @@ from app.core.db import engine
 from app.core.security import hash_password, verify_password
 from app.core.templates import templates
 from app.models import User
-from app.services.meal_modes import build_user_meal_kcal_modes
 
 router = APIRouter()
 
@@ -25,8 +24,13 @@ def register(request: Request, email: str = Form(...), password: str = Form(...)
         session.add(u)
         session.commit()
         session.refresh(u)
+        if not u.password_hash.startswith("scrypt:"):
+            u.password_hash = hash_password(password)
+            session.add(u)
+            session.commit()
+        request.session.clear()
         request.session["uid"] = u.id
-        request.session["meal_kcal_modes"] = {}
+        request.session.pop("meal_kcal_modes", None)
     return RedirectResponse("/", status_code=303)
 
 @router.get("/login")
@@ -40,8 +44,13 @@ def login(request: Request, email: str = Form(...), password: str = Form(...)):
         u = session.exec(select(User).where(User.email == email)).first()
         if not u or not verify_password(password, u.password_hash):
             return templates.TemplateResponse("login.html", {"request": request, "error": "Nieprawidłowy login lub hasło"})
+        if not u.password_hash.startswith("scrypt:"):
+            u.password_hash = hash_password(password)
+            session.add(u)
+            session.commit()
+        request.session.clear()
         request.session["uid"] = u.id
-        request.session["meal_kcal_modes"] = build_user_meal_kcal_modes(session, u.id)
+        request.session.pop("meal_kcal_modes", None)
     return RedirectResponse("/", status_code=303)
 
 @router.post("/logout")

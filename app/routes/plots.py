@@ -1,3 +1,5 @@
+from fastapi.responses import Response
+from app.services.meal_history import get_meal_history
 from fastapi import APIRouter, Request
 import matplotlib.pyplot as plt
 from app.services.measurements import get_all_measurements, compute_weekly_changes, filter_by_periods, is_truthy
@@ -42,43 +44,11 @@ def plot_history(request: Request, filters: str | None = None, trend: str | None
 @router.get("/plot-meals-hist")
 def plot_meals_hist(request: Request, date_str: str | None = None, from_date: str | None = None, to_date: str | None = None, product: str | None = None):
     uid = request.session.get("uid")
-    q_product = (product or "").strip().lower()
-    d_exact: date | None = None
-    d_from: date | None = None
-    d_to: date | None = None
-    try:
-        if date_str:
-            d_exact = datetime.strptime(date_str, "%Y-%m-%d").date()
-    except Exception:
-        d_exact = None
-    try:
-        if from_date:
-            d_from = datetime.strptime(from_date, "%Y-%m-%d").date()
-    except Exception:
-        d_from = None
-    try:
-        if to_date:
-            d_to = datetime.strptime(to_date, "%Y-%m-%d").date()
-    except Exception:
-        d_to = None
+    if not uid:
+        return Response(status_code=403)
     with Session(engine) as session:
-        stmt = select(SavedDay).where(SavedDay.user_id == uid).order_by(SavedDay.date)
-        days = session.exec(stmt).all()
-        totals = []
-        for sd in days:
-            if d_exact and sd.date != d_exact:
-                continue
-            if d_from and sd.date < d_from:
-                continue
-            if d_to and sd.date > d_to:
-                continue
-            meals = session.exec(
-                select(Meal).where(Meal.user_id == uid, Meal.date == sd.date).order_by(Meal.id)
-            ).all()
-            if q_product:
-                meals = [m for m in meals if q_product in (m.name or "").lower()]
-            total = sum(int(m.kcal) for m in meals) if meals else 0
-            totals.append(total)
+        days = get_meal_history(session, uid, date_str, from_date, to_date, product)
+        totals = [day["total_kcal"] for day in days]
     with PLOT_LOCK:
         fig, ax = plt.subplots(figsize=(10, 5))
         if not totals:
@@ -118,43 +88,11 @@ def plot_weekly_changes(request: Request, filters: str | None = None):
 @router.get("/plot-meals-daily")
 def plot_meals_daily(request: Request, date_str: str | None = None, from_date: str | None = None, to_date: str | None = None, product: str | None = None):
     uid = request.session.get("uid")
-    q_product = (product or "").strip().lower()
-    d_exact: date | None = None
-    d_from: date | None = None
-    d_to: date | None = None
-    try:
-        if date_str:
-            d_exact = datetime.strptime(date_str, "%Y-%m-%d").date()
-    except Exception:
-        d_exact = None
-    try:
-        if from_date:
-            d_from = datetime.strptime(from_date, "%Y-%m-%d").date()
-    except Exception:
-        d_from = None
-    try:
-        if to_date:
-            d_to = datetime.strptime(to_date, "%Y-%m-%d").date()
-    except Exception:
-        d_to = None
+    if not uid:
+        return Response(status_code=403)
     with Session(engine) as session:
-        stmt = select(SavedDay).where(SavedDay.user_id == uid).order_by(SavedDay.date)
-        days = session.exec(stmt).all()
-        points = []
-        for sd in days:
-            if d_exact and sd.date != d_exact:
-                continue
-            if d_from and sd.date < d_from:
-                continue
-            if d_to and sd.date > d_to:
-                continue
-            meals = session.exec(
-                select(Meal).where(Meal.user_id == uid, Meal.date == sd.date).order_by(Meal.id)
-            ).all()
-            if q_product:
-                meals = [m for m in meals if q_product in (m.name or "").lower()]
-            total = sum(int(m.kcal) for m in meals) if meals else 0
-            points.append((sd.date, total))
+        days = get_meal_history(session, uid, date_str, from_date, to_date, product)
+        points = [(day["date"], day["total_kcal"]) for day in days]
     with PLOT_LOCK:
         fig, ax = plt.subplots(figsize=(10, 5))
         if not points:

@@ -1,15 +1,10 @@
 import os
-import shutil
 from sqlmodel import SQLModel, create_engine
 from app import models
 from .config import DATABASE_URL, DB_PATH
 
-if os.environ.get("ENV") == "test":
-    prod_db = "data/measurements.db"
-    test_db = DB_PATH
-    if not os.path.exists(test_db) and os.path.exists(prod_db):
-        print(f"Copying production database {prod_db} to {test_db}...")
-        shutil.copy2(prod_db, test_db)
+# Test environments start empty; production data is never copied implicitly.
+os.makedirs(os.path.dirname(DB_PATH) or ".", exist_ok=True)
 
 engine = create_engine(DATABASE_URL, connect_args={"check_same_thread": False})
 
@@ -19,7 +14,7 @@ if not os.path.exists("data"):
 SQLModel.metadata.create_all(engine)
 
 def ensure_schema():
-    with engine.connect() as conn:
+    with engine.begin() as conn:
         cols = [r[1] for r in conn.exec_driver_sql("PRAGMA table_info('measurement')").fetchall()]
         if "user_id" not in cols:
             conn.exec_driver_sql("ALTER TABLE measurement ADD COLUMN user_id INTEGER")
@@ -30,3 +25,8 @@ def ensure_schema():
         mcols = [r[1] for r in conn.exec_driver_sql("PRAGMA table_info('meal')").fetchall()]
         if mcols and "category" not in mcols:
             conn.exec_driver_sql("ALTER TABLE meal ADD COLUMN category TEXT")
+
+        for table in ("meal", "measurement", "savedday"):
+            conn.exec_driver_sql(
+                f"CREATE INDEX IF NOT EXISTS ix_{table}_user_date ON {table} (user_id, date)"
+            )

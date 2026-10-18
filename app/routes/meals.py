@@ -1,8 +1,10 @@
 from fastapi import APIRouter, Request, Form, Query
+from typing import Literal
+from app.services.meal_modes import build_user_meal_kcal_modes
+from app.services.meal_history import get_meal_history
 from fastapi.responses import RedirectResponse
 from datetime import date, datetime
 from sqlmodel import Session, select
-import statistics
 from app.core.db import engine
 from app.core.templates import templates
 from app.models import Meal, User, SavedDay
@@ -23,6 +25,7 @@ def meals_today(request: Request):
         user = session.exec(select(User).where(User.id == uid)).first()
         goal = user.daily_kcal_goal if user and user.daily_kcal_goal else 2000
         remaining = goal - total
+        meal_kcal_modes = build_user_meal_kcal_modes(session, uid)
     return templates.TemplateResponse(
         "meals.html",
         {
@@ -32,7 +35,7 @@ def meals_today(request: Request):
             "total": total,
             "goal": goal,
             "remaining": remaining,
-            "meal_kcal_modes": request.session.get("meal_kcal_modes", {}),
+            "meal_kcal_modes": meal_kcal_modes,
         },
     )
 
@@ -121,47 +124,8 @@ def meals_history(request: Request, date_str: str | None = None, from_date: str 
     uid = request.session.get("uid")
     if not uid:
         return RedirectResponse("/login", status_code=303)
-    q_product = (product or "").strip().lower()
-    d_exact: date | None = None
-    d_from: date | None = None
-    d_to: date | None = None
-    try:
-        if date_str:
-            d_exact = datetime.strptime(date_str, "%Y-%m-%d").date()
-    except Exception:
-        d_exact = None
-    try:
-        if from_date:
-            d_from = datetime.strptime(from_date, "%Y-%m-%d").date()
-    except Exception:
-        d_from = None
-    try:
-        if to_date:
-            d_to = datetime.strptime(to_date, "%Y-%m-%d").date()
-    except Exception:
-        d_to = None
     with Session(engine) as session:
-        stmt = select(SavedDay).where(SavedDay.user_id == uid).order_by(SavedDay.date.desc())
-        days = session.exec(stmt).all()
-        filtered_days = []
-        for sd in days:
-            if d_exact and sd.date != d_exact:
-                continue
-            if d_from and sd.date < d_from:
-                continue
-            if d_to and sd.date > d_to:
-                continue
-            meals = session.exec(
-                select(Meal).where(Meal.user_id == uid, Meal.date == sd.date).order_by(Meal.id)
-            ).all()
-            if q_product:
-                meals = [m for m in meals if q_product in (m.name or "").lower()]
-            total = sum(int(m.kcal) for m in meals) if meals else 0
-            filtered_days.append({
-                "date": sd.date,
-                "meals": meals,
-                "total_kcal": total,
-            })
+        filtered_days = get_meal_history(session, uid, date_str, from_date, to_date, product)
     return templates.TemplateResponse(
         "meals_history.html",
         {
@@ -196,15 +160,15 @@ import json
 @router.get("/meals/stats")
 def meals_stats(
     request: Request,
-    from_date: str | None = None,
-    to_date: str | None = None,
-    view_mode: str = 'table',
+    from_date: date | None = None,
+    to_date: date | None = None,
+    view_mode: Literal['table', 'graph'] = 'table',
     agg_func: list[str] = Query(default=['mean']),
     category_filter: list[str] = Query(default=[]),
-    chart_type: str = 'bar',
-    top_n: int = 10,
-    sort_by: str = 'mean',
-    agg_by: str = 'name',
+    chart_type: Literal['bar', 'pie', 'box'] = 'bar',
+    top_n: int = Query(default=10, ge=1, le=100),
+    sort_by: Literal['mean', 'median', 'sum', 'count', 'min', 'max', 'std'] = 'mean',
+    agg_by: Literal['name', 'category', 'category_name'] = 'name',
 ):
     uid = request.session.get("uid")
     if not uid:
@@ -215,6 +179,10 @@ def meals_stats(
 
     with Session(engine) as session:
         stmt = select(Meal).where(Meal.user_id == uid)
+        if from_date:
+            stmt = stmt.where(Meal.date >= from_date)
+        if to_date:
+            stmt = stmt.where(Meal.date <= to_date)
         meals = session.exec(stmt).all()
 
     if not meals:
@@ -281,6 +249,8 @@ def meals_stats(
     if not valid_aggs:
         valid_aggs = ['mean']
 
+    agg_func = list(dict.fromkeys(valid_aggs))
+    valid_aggs = agg_func.copy()
     if sort_by not in valid_aggs:
         valid_aggs.append(sort_by)
 

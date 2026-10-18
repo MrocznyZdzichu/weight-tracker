@@ -13,7 +13,7 @@ def normalize_meal_name(name: str | None) -> str:
 
 
 def build_user_meal_kcal_modes(session: Session, user_id: int) -> dict[str, int]:
-    meals = session.exec(select(Meal).where(Meal.user_id == user_id)).all()
+    meals = session.exec(select(Meal.name, Meal.kcal).where(Meal.user_id == user_id)).all()
     counts_by_name: dict[str, Counter[int]] = defaultdict(Counter)
 
     for meal in meals:
@@ -26,5 +26,5 @@ def build_user_meal_kcal_modes(session: Session, user_id: int) -> dict[str, int]
     for name, kcal_counts in counts_by_name.items():
         if not kcal_counts:
             continue
-        modes[name] = sorted(kcal_counts.items(), key=lambda item: (-item[1], item[0]))[0][0]
+        modes[name] = min(kcal_counts, key=lambda kcal: (-kcal_counts[kcal], kcal))
     return modes

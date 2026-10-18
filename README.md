@@ -41,7 +41,7 @@ Lekka aplikacja FastAPI do śledzenia masy ciała i kalorii, z zaawansowanymi st
 ### Środowisko Testowe
 
 - Aby uruchomić aplikację w trybie testowym, należy ustawić zmienną środowiskową `ENV=test`.
-- W trybie testowym, jeśli testowa baza danych nie istnieje, aplikacja automatycznie skopiuje produkcyjną bazę danych, aby zapewnić spójność danych do testów.
+- ?rodowisko testowe startuje z pust? baz?; nie kopiuje danych produkcyjnych.
   ```bash
   # Przykład uruchomienia w trybie testowym
   ENV=test docker compose up
@@ -58,3 +58,13 @@ Lekka aplikacja FastAPI do śledzenia masy ciała i kalorii, z zaawansowanymi st
 ## Licencja
 
 Projekt na użytek wewnętrzny. Można dowolnie modyfikować i rozwijać.
+
+## Rozw?j i praca z AI
+
+- [Wytyczne agent?w](AGENTS.md)
+- [Architektura](docs/ARCHITECTURE.md)
+- [Testy, wdro?enie i rollback](docs/OPERATIONS.md)
+- [Wyniki review i dalsze prace](docs/REVIEW.md)
+- [Handoff](docs/HANDOFF.md)
+
+Testy regresji (Python 3.11): `pip install -r requirements-dev.txt`, nast?pnie `python -m unittest discover -s tests -v`.

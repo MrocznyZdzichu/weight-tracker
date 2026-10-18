@@ -99,11 +99,14 @@ def import_form(request: Request):
 
 @router.post("/import")
 async def import_csv(request: Request, file: UploadFile):
-    data = await file.read()
-    text = data.decode("utf-8").strip().splitlines()
     uid = request.session.get("uid")
     if not uid:
         return RedirectResponse("/login", status_code=303)
+    data = await file.read(2 * 1024 * 1024 + 1)
+    if len(data) > 2 * 1024 * 1024:
+        from fastapi import HTTPException
+        raise HTTPException(413, "CSV exceeds 2 MiB")
+    text = data.decode("utf-8-sig", errors="replace").strip().splitlines()
     with Session(engine) as session:
         for line in text:
             parts = line.strip().split(",")
@@ -113,7 +116,7 @@ async def import_csv(request: Request, file: UploadFile):
             try:
                 dt = datetime.strptime(dstr, "%d/%m/%Y").date()
                 w = round(float(wstr), 1)
-            except:
+            except (ValueError, OverflowError):
                 continue
             m = Measurement(date=dt, weight_kg=w, user_id=uid)
             session.add(m)
