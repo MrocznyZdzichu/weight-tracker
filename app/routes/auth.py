@@ -24,13 +24,8 @@ def register(request: Request, email: str = Form(...), password: str = Form(...)
         session.add(u)
         session.commit()
         session.refresh(u)
-        if not u.password_hash.startswith("scrypt:"):
-            u.password_hash = hash_password(password)
-            session.add(u)
-            session.commit()
         request.session.clear()
         request.session["uid"] = u.id
-        request.session.pop("meal_kcal_modes", None)
     return RedirectResponse("/", status_code=303)
 
 @router.get("/login")
@@ -50,7 +45,6 @@ def login(request: Request, email: str = Form(...), password: str = Form(...)):
             session.commit()
         request.session.clear()
         request.session["uid"] = u.id
-        request.session.pop("meal_kcal_modes", None)
     return RedirectResponse("/", status_code=303)
 
 @router.post("/logout")
