@@ -85,11 +85,16 @@ def find_kcal_info(query: str, max_results: int = 5) -> List[Dict]:
         "page_size": max_results,
     }
     results: List[Dict] = []
+    products = []
     try:
         r = requests.get(url, params=params, timeout=5, headers={"User-Agent": "WeightTracker/1.0"})
         data = r.json()
         products = data.get("products") or []
-        for p in products:
+    except Exception:
+        pass  # products remains [], will go to fallback
+
+    for p in products:
+        try:
             name = p.get("product_name") or p.get("product_name_pl") or p.get("brands") or "Produkt"
             nutr = p.get("nutriments") or {}
             kcal_100g = nutr.get("energy-kcal_100g")
@@ -104,8 +109,9 @@ def find_kcal_info(query: str, max_results: int = 5) -> List[Dict]:
                 results.append(item)
             if len(results) >= max_results:
                 break
-    except Exception:
-        results = []
+        except Exception:
+            continue  # skip this product on error
+
     if results:
         return results
     return _fallback_search_kcal(query, max_results)

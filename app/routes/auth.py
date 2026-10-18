@@ -24,6 +24,7 @@ def register(request: Request, email: str = Form(...), password: str = Form(...)
         session.add(u)
         session.commit()
         session.refresh(u)
+        request.session.clear()
         request.session["uid"] = u.id
     return RedirectResponse("/", status_code=303)
 
@@ -38,10 +39,16 @@ def login(request: Request, email: str = Form(...), password: str = Form(...)):
         u = session.exec(select(User).where(User.email == email)).first()
         if not u or not verify_password(password, u.password_hash):
             return templates.TemplateResponse("login.html", {"request": request, "error": "Nieprawidłowy login lub hasło"})
+        if not u.password_hash.startswith("scrypt:"):
+            u.password_hash = hash_password(password)
+            session.add(u)
+            session.commit()
+        request.session.clear()
         request.session["uid"] = u.id
     return RedirectResponse("/", status_code=303)
 
 @router.post("/logout")
 def logout(request: Request):
     request.session.pop("uid", None)
+    request.session.pop("meal_kcal_modes", None)
     return RedirectResponse("/", status_code=303)

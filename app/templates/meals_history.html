@@ -31,9 +31,9 @@
             <p>Razem: <strong>{{ d.total_kcal }}</strong> kcal</p>
             {% if d.meals %}
               <table>
-                <tr><th>#</th><th>Produkt</th><th>Kcal</th></tr>
+                <tr><th>#</th><th>Produkt</th><th>Kategoria</th><th>Kcal</th></tr>
                 {% for m in d.meals %}
-                  <tr><td>{{ loop.index }}</td><td>{{ m.name }}</td><td>{{ m.kcal }}</td></tr>
+                  <tr><td>{{ loop.index }}</td><td>{{ m.name }}</td><td>{{ m.category or '-' }}</td><td>{{ m.kcal }}</td></tr>
                 {% endfor %}
               </table>
             {% else %}

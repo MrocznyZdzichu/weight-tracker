@@ -46,17 +46,21 @@ def fetch_health_fact() -> str:
                 break
         except Exception:
             continue
-    if not tips:
-        tips = [
-            "Jedz dużo warzyw, owoców i pełnoziarnistych produktów.",
-            "Wybieraj chude źródła białka i zdrowe tłuszcze.",
-            "Ogranicz cukry dodane i wysoko przetworzone produkty.",
-            "Pij wodę i jedz regularnie, dbając o porcje.",
-            "Włącz do diety strączki, orzechy i nasiona.",
-            "Zmniejsz spożycie soli; zamieniaj ją na zioła i przyprawy.",
-            "Wybieraj produkty z wysoką zawartością błonnika.",
-        ]
-    return random.choice(tips)
+
+    if tips:
+        fact = random.choice(tips)
+        return translate_to_pl(fact)
+
+    fallback_tips = [
+        "Jedz dużo warzyw, owoców i pełnoziarnistych produktów.",
+        "Wybieraj chude źródła białka i zdrowe tłuszcze.",
+        "Ogranicz cukry dodane i wysoko przetworzone produkty.",
+        "Pij wodę i jedz regularnie, dbając o porcje.",
+        "Włącz do diety strączki, orzechy i nasiona.",
+        "Zmniejsz spożycie soli; zamieniaj ją na zioła i przyprawy.",
+        "Wybieraj produkty z wysoką zawartością błonnika.",
+    ]
+    return random.choice(fallback_tips)
 
 def translate_to_pl(text: str) -> str:
     try:
